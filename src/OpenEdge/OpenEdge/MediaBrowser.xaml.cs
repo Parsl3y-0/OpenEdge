@@ -14,6 +14,15 @@ using System.Threading.Tasks;
 
 namespace OpenEdge;
 
+public enum MediaBrowserTagFilterMode
+{
+    None,
+    MatchingFirst,
+    MatchSelected,
+    ExactMatch,
+    MissingAny
+}
+
 public partial class MediaBrowser : UserControl, INotifyPropertyChanged
 {
     private sealed class SourceFilterOption
@@ -37,6 +46,8 @@ public partial class MediaBrowser : UserControl, INotifyPropertyChanged
     private bool _sortAscending = true;
     private bool _showThumbnails = false;
     private int _thumbnailSize = 150;
+    private MediaBrowserTagFilterMode _tagFilterMode = MediaBrowserTagFilterMode.None;
+    private List<string> _tagFilterTags = new List<string>();
     private Dictionary<string, BitmapSource> _thumbnailCache = new Dictionary<string, BitmapSource>(StringComparer.OrdinalIgnoreCase);
     private Queue<string> _thumbnailCacheOrder = new Queue<string>();
     private object _thumbnailLock = new object();
@@ -217,6 +228,19 @@ public partial class MediaBrowser : UserControl, INotifyPropertyChanged
             (string.IsNullOrEmpty(_filterFolderPath) || IsDirectlyInDirectory(item.FullPath, _filterFolderPath))
         ).ToList();
 
+        if (_tagFilterMode == MediaBrowserTagFilterMode.MatchSelected)
+        {
+            filtered = filtered.Where(item => GetTagMatchCount(item) == _tagFilterTags.Count).ToList();
+        }
+        else if (_tagFilterMode == MediaBrowserTagFilterMode.ExactMatch)
+        {
+            filtered = filtered.Where(IsExactTagMatch).ToList();
+        }
+        else if (_tagFilterMode == MediaBrowserTagFilterMode.MissingAny)
+        {
+            filtered = filtered.Where(item => GetTagMatchCount(item) < _tagFilterTags.Count).ToList();
+        }
+
         switch (_sortField)
         {
             case "Date":
@@ -228,6 +252,11 @@ public partial class MediaBrowser : UserControl, INotifyPropertyChanged
             default:
                 filtered = (_sortAscending ? filtered.OrderBy(item => item.FileName, StringComparer.OrdinalIgnoreCase) : filtered.OrderByDescending(item => item.FileName, StringComparer.OrdinalIgnoreCase)).ToList();
                 break;
+        }
+
+        if (_tagFilterMode == MediaBrowserTagFilterMode.MatchingFirst)
+        {
+            filtered = filtered.OrderByDescending(GetTagMatchCount).ThenBy(item => item.FileName, StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         _filteredMedia = filtered;
@@ -259,6 +288,8 @@ public partial class MediaBrowser : UserControl, INotifyPropertyChanged
     {
         return !string.IsNullOrWhiteSpace(path);
     }).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+    public int FilteredMediaCount => _filteredMedia.Count;
 
     public string SearchText
     {
@@ -598,6 +629,69 @@ public partial class MediaBrowser : UserControl, INotifyPropertyChanged
             Background = new SolidColorBrush(Color.FromRgb(34, 34, 34)),
             Foreground = Brushes.White
         };
+    }
+
+    public void ApplyTagFilter(MediaBrowserTagFilterMode mode, IEnumerable<string> tags)
+    {
+        _tagFilterTags = (tags ?? Enumerable.Empty<string>()).Where(delegate(string tag)
+        {
+            return !string.IsNullOrWhiteSpace(tag);
+        }).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        _tagFilterMode = _tagFilterTags.Count == 0 ? MediaBrowserTagFilterMode.None : mode;
+        SessionTraceLogger.Info("media-browser", "tag filter mode=" + _tagFilterMode + " tags=" + string.Join(",", _tagFilterTags));
+        ApplyFilter();
+        OnPropertyChanged(nameof(FilteredMediaCount));
+    }
+
+    public void ClearTagFilter()
+    {
+        ApplyTagFilter(MediaBrowserTagFilterMode.None, Array.Empty<string>());
+    }
+
+    private int GetTagMatchCount(MediaItem item)
+    {
+        if (item == null || _tagFilterTags.Count == 0)
+        {
+            return 0;
+        }
+        HashSet<string> itemTags = ParseTags(_mediaCatalog.GetTags(item.RelativePath));
+        int count = 0;
+        foreach (string tag in _tagFilterTags)
+        {
+            if (itemTags.Contains(tag))
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private bool IsExactTagMatch(MediaItem item)
+    {
+        if (item == null)
+        {
+            return false;
+        }
+        HashSet<string> itemTags = ParseTags(_mediaCatalog.GetTags(item.RelativePath));
+        return itemTags.Count == _tagFilterTags.Count && GetTagMatchCount(item) == _tagFilterTags.Count;
+    }
+
+    private static HashSet<string> ParseTags(string tags)
+    {
+        HashSet<string> result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(tags))
+        {
+            return result;
+        }
+        foreach (string tag in tags.Split(new char[3] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            string trimmed = tag.Trim();
+            if (trimmed.Length != 0)
+            {
+                result.Add(trimmed);
+            }
+        }
+        return result;
     }
 
     private void MediaTypeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

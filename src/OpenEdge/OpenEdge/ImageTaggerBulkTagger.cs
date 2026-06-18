@@ -319,6 +319,45 @@ public partial class ImageTaggerBulkTagger : Grid, IComponentConnector
 		UpdateStatusText();
 	}
 
+	private void MatchingFirstButton_Click(object sender, RoutedEventArgs e)
+	{
+		ApplyBrowserFilter(MediaBrowserTagFilterMode.MatchingFirst, "Sorted matching media first.");
+	}
+
+	private void MatchSelectedButton_Click(object sender, RoutedEventArgs e)
+	{
+		ApplyBrowserFilter(MediaBrowserTagFilterMode.MatchSelected, "Include filter: showing media with all selected tags.");
+	}
+
+	private void ExactMatchButton_Click(object sender, RoutedEventArgs e)
+	{
+		ApplyBrowserFilter(MediaBrowserTagFilterMode.ExactMatch, "Showing media whose tags exactly match the selection.");
+	}
+
+	private void MissingTagsButton_Click(object sender, RoutedEventArgs e)
+	{
+		ApplyBrowserFilter(MediaBrowserTagFilterMode.MissingAny, "Exclude filter: showing media that does not include all selected tags.");
+	}
+
+	private void ClearFilterButton_Click(object sender, RoutedEventArgs e)
+	{
+		tagger.playClickSound();
+		int count = tagger.ClearBrowserTagFilter();
+		StatusText.Text = "Cleared browser tag filter. Showing " + count + " media file(s).";
+	}
+
+	private void ApplyBrowserFilter(MediaBrowserTagFilterMode mode, string message)
+	{
+		tagger.playClickSound();
+		if (selectedTags.Count == 0)
+		{
+			MessageBox.Show("Select one or more tags before filtering the browser.", "OpenEdge", MessageBoxButton.OK, MessageBoxImage.Information);
+			return;
+		}
+		int count = tagger.ApplyBrowserTagFilter(mode, selectedTags);
+		StatusText.Text = message + " " + count + " media file(s) visible.";
+	}
+
 	private async void ApplyButton_Click(object sender, RoutedEventArgs e)
 	{
 		tagger.playClickSound();
@@ -420,11 +459,11 @@ public partial class ImageTaggerBulkTagger : Grid, IComponentConnector
 		int count = CollectSelectedMediaPaths().Count;
 		if (UseBrowserSelectionBox.IsChecked == true)
 		{
-			StatusText.Text = count + " browser-selected media file(s). " + selectedTags.Count + " tag(s) selected.";
+			StatusText.Text = count + " browser-selected media file(s). " + selectedTags.Count + " tag(s) selected. Filter buttons affect the browser list only.";
 			return;
 		}
 		int num = CountCheckedFolders(rootNodes);
-		StatusText.Text = num + " folder selections covering " + count + " media file(s). " + selectedTags.Count + " tag(s) selected.";
+		StatusText.Text = num + " folder selections covering " + count + " media file(s). " + selectedTags.Count + " tag(s) selected. Filter buttons affect the browser list only.";
 	}
 
 	private void UseBrowserSelectionBox_CheckedChanged(object sender, RoutedEventArgs e)

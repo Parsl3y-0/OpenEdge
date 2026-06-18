@@ -1404,6 +1404,18 @@ public partial class ImageTagger : Page, IComponentConnector
 		return selectedBrowserMediaPaths.ToList();
 	}
 
+	public int ApplyBrowserTagFilter(MediaBrowserTagFilterMode mode, IEnumerable<string> selectedTags)
+	{
+		mediaBrowser?.ApplyTagFilter(mode, selectedTags);
+		return mediaBrowser?.FilteredMediaCount ?? 0;
+	}
+
+	public int ClearBrowserTagFilter()
+	{
+		mediaBrowser?.ClearTagFilter();
+		return mediaBrowser?.FilteredMediaCount ?? 0;
+	}
+
 	private void UpdateBrowserSelectionStatus()
 	{
 		if (selectionStatusText == null)
@@ -1411,7 +1423,7 @@ public partial class ImageTagger : Page, IComponentConnector
 			return;
 		}
 		selectionStatusText.Text = selectedBrowserMediaPaths.Count == 0 ? "Selected: 0" : "Selected: " + selectedBrowserMediaPaths.Count;
-		bulkTaggingBtn.Content = selectedBrowserMediaPaths.Count == 0 ? "Tag" : "Tag (" + selectedBrowserMediaPaths.Count + ")";
+		bulkTaggingBtn.Content = selectedBrowserMediaPaths.Count == 0 ? "Operations" : "Operations (" + selectedBrowserMediaPaths.Count + ")";
 		bulkMoveBtn.Content = selectedBrowserMediaPaths.Count == 0 ? "Move" : "Move (" + selectedBrowserMediaPaths.Count + ")";
 		explorerViewBtn.Content = explorerViewEnabled ? "Preview" : "Explorer";
 	}
