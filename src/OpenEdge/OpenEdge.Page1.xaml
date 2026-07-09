@@ -83,7 +83,7 @@
                        FontSize="42"
                        FontFamily="Segoe UI"
                        FontWeight="SemiBold" />
-            <TextBlock Text="0.6.5"
+            <TextBlock Text="0.6.6"
                        Foreground="{StaticResource MutedTextBrush}"
                        FontSize="14"
                        FontFamily="Segoe UI"
