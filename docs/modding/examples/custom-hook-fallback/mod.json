@@ -1,0 +1,7 @@
+{
+  "id": "example-custom-hook-fallback",
+  "name": "Example - Custom Hook Fallback",
+  "author": "OpenEdge",
+  "version": "1.0.0",
+  "enabled": false
+}

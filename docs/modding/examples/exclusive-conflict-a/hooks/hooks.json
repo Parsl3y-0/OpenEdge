@@ -1,0 +1,10 @@
+{
+  "hooks": [
+    {
+      "hook": "sessionEnd",
+      "script": "exampleConflictAEnding",
+      "mode": "exclusive",
+      "allowedWhileChaste": true
+    }
+  ]
+}

@@ -66,12 +66,13 @@ public static class ModService
 				TagCount = loadedMod.Tags.Count,
 				ContextCount = loadedMod.Contexts.Count,
 				HookCount = loadedMod.Hooks.Count,
+				OverrideHookCount = loadedMod.Hooks.Count((ModHookDefinition hook) => string.Equals(hook.Mode, "exclusive", StringComparison.OrdinalIgnoreCase) || string.Equals(hook.Mode, "replace", StringComparison.OrdinalIgnoreCase)),
 				OutcomeCount = loadedMod.Outcomes.Count,
 				HasLines = IsUsableLineRoot(loadedMod.LinesRootPath),
 				Error = ValidateLoadedMod(loadedMod)
 			});
 		}
-		AppendGlobalWarnings(summaries, loadedMods.Where((LoadedMod mod) => mod.Manifest.Enabled).ToList());
+		AppendGlobalWarnings(summaries, loadedMods, loadedMods.Where((LoadedMod mod) => mod.Manifest.Enabled).ToList());
 		return summaries;
 	}
 
@@ -316,10 +317,13 @@ public static class ModService
 		{
 			return new List<ModHookDefinition>();
 		}
-		List<ModHookDefinition> hooks = hooksFile.Hooks.Where((ModHookDefinition hook) => !string.IsNullOrWhiteSpace(hook.Hook) && !string.IsNullOrWhiteSpace(hook.Script)).ToList();
+		List<ModHookDefinition> hooks = hooksFile.Hooks.Where((ModHookDefinition hook) => hook != null).ToList();
 		foreach (ModHookDefinition hook in hooks)
 		{
 			hook.SourceModId = manifest.Id;
+			hook.Hook = CleanKey(hook.Hook);
+			hook.Script = CleanKey(hook.Script);
+			hook.Mode = CleanKey(hook.Mode);
 		}
 		return hooks;
 	}
@@ -336,10 +340,12 @@ public static class ModService
 		{
 			return new List<ModOutcomeDefinition>();
 		}
-		List<ModOutcomeDefinition> outcomes = outcomesFile.Outcomes.Where((ModOutcomeDefinition outcome) => !string.IsNullOrWhiteSpace(outcome.Key) && !string.IsNullOrWhiteSpace(outcome.Kind)).ToList();
+		List<ModOutcomeDefinition> outcomes = outcomesFile.Outcomes.Where((ModOutcomeDefinition outcome) => outcome != null).ToList();
 		foreach (ModOutcomeDefinition outcome in outcomes)
 		{
 			outcome.SourceModId = manifest.Id;
+			outcome.Key = CleanKey(outcome.Key);
+			outcome.Kind = CleanKey(outcome.Kind);
 		}
 		return outcomes;
 	}
@@ -453,7 +459,15 @@ public static class ModService
 		{
 			warnings.Add("duplicate context keys");
 		}
-		if (mod.Hooks.GroupBy((ModHookDefinition hook) => hook.Hook + ":" + hook.Script, StringComparer.OrdinalIgnoreCase).Any((IGrouping<string, ModHookDefinition> group) => group.Count() > 1))
+		if (mod.Hooks.Any((ModHookDefinition hook) => string.IsNullOrWhiteSpace(hook.Hook)))
+		{
+			warnings.Add("hook with missing name");
+		}
+		if (mod.Hooks.Any((ModHookDefinition hook) => string.IsNullOrWhiteSpace(hook.Script)))
+		{
+			warnings.Add("hook with missing script");
+		}
+		if (mod.Hooks.Where((ModHookDefinition hook) => !string.IsNullOrWhiteSpace(hook.Hook) && !string.IsNullOrWhiteSpace(hook.Script)).GroupBy((ModHookDefinition hook) => hook.Hook + ":" + hook.Script, StringComparer.OrdinalIgnoreCase).Any((IGrouping<string, ModHookDefinition> group) => group.Count() > 1))
 		{
 			warnings.Add("duplicate hook registrations");
 		}
@@ -461,7 +475,15 @@ public static class ModService
 		{
 			warnings.Add("unknown hook mode");
 		}
-		if (mod.Outcomes.GroupBy((ModOutcomeDefinition outcome) => outcome.Kind + ":" + outcome.Key, StringComparer.OrdinalIgnoreCase).Any((IGrouping<string, ModOutcomeDefinition> group) => group.Count() > 1))
+		if (mod.Outcomes.Any((ModOutcomeDefinition outcome) => string.IsNullOrWhiteSpace(outcome.Kind)))
+		{
+			warnings.Add("outcome with missing kind");
+		}
+		if (mod.Outcomes.Any((ModOutcomeDefinition outcome) => string.IsNullOrWhiteSpace(outcome.Key)))
+		{
+			warnings.Add("outcome with missing key");
+		}
+		if (mod.Outcomes.Where((ModOutcomeDefinition outcome) => !string.IsNullOrWhiteSpace(outcome.Kind) && !string.IsNullOrWhiteSpace(outcome.Key)).GroupBy((ModOutcomeDefinition outcome) => outcome.Kind + ":" + outcome.Key, StringComparer.OrdinalIgnoreCase).Any((IGrouping<string, ModOutcomeDefinition> group) => group.Count() > 1))
 		{
 			warnings.Add("duplicate outcome keys");
 		}
@@ -494,12 +516,74 @@ public static class ModService
 		}
 	}
 
-	private static void AppendGlobalWarnings(List<ModSummary> summaries, List<LoadedMod> enabledMods)
+	private static void AppendGlobalWarnings(List<ModSummary> summaries, List<LoadedMod> loadedMods, List<LoadedMod> enabledMods)
 	{
 		AppendDuplicateWarnings(summaries, enabledMods.SelectMany((LoadedMod mod) => mod.Settings.Select((SettingDefinition setting) => new KeyValuePair<string, string>(setting.Key, mod.RootPath))), "setting");
 		AppendDuplicateWarnings(summaries, enabledMods.SelectMany((LoadedMod mod) => mod.Tags.Select((ModTagDefinition tag) => new KeyValuePair<string, string>(string.IsNullOrWhiteSpace(tag.Key) ? tag.Label : tag.Key, mod.RootPath))), "tag");
 		AppendDuplicateWarnings(summaries, enabledMods.SelectMany((LoadedMod mod) => mod.Contexts.Select((DerivedContextDefinition context) => new KeyValuePair<string, string>(context.Key, mod.RootPath))), "context");
-		AppendDuplicateWarnings(summaries, enabledMods.SelectMany((LoadedMod mod) => mod.Outcomes.Select((ModOutcomeDefinition outcome) => new KeyValuePair<string, string>(outcome.Kind + ":" + outcome.Key, mod.RootPath))), "outcome");
+		AppendDuplicateWarnings(summaries, enabledMods.SelectMany((LoadedMod mod) => mod.Outcomes.Where((ModOutcomeDefinition outcome) => !string.IsNullOrWhiteSpace(outcome.Kind) && !string.IsNullOrWhiteSpace(outcome.Key)).Select((ModOutcomeDefinition outcome) => new KeyValuePair<string, string>(outcome.Kind + ":" + outcome.Key, mod.RootPath))), "outcome");
+		AppendMissingHookScriptWarnings(summaries, loadedMods);
+		AppendExclusiveHookConflictWarnings(summaries, enabledMods);
+	}
+
+	private static void AppendMissingHookScriptWarnings(List<ModSummary> summaries, List<LoadedMod> loadedMods)
+	{
+		List<string> lineRoots = new List<string> { RuntimePaths.LinesDir };
+		lineRoots.AddRange(loadedMods.Select((LoadedMod mod) => mod.LinesRootPath).Where(IsUsableLineRoot));
+		foreach (LoadedMod mod in loadedMods)
+		{
+			foreach (ModHookDefinition hook in mod.Hooks.Where((ModHookDefinition hook) => !string.IsNullOrWhiteSpace(hook.Script)))
+			{
+				if (!ScriptExistsInLineRoots(hook.Script, lineRoots))
+				{
+					AppendWarningForRoot(summaries, mod.RootPath, "missing hook script: " + hook.Script);
+				}
+			}
+		}
+	}
+
+	private static bool ScriptExistsInLineRoots(string scriptName, IEnumerable<string> lineRoots)
+	{
+		string cleanScriptName = CleanKey(scriptName);
+		if (cleanScriptName.Length == 0)
+		{
+			return false;
+		}
+		foreach (string lineRoot in lineRoots.Where((string root) => !string.IsNullOrWhiteSpace(root)))
+		{
+			try
+			{
+				if (File.Exists(Path.Combine(lineRoot, "Scripts", "Base", cleanScriptName + ".txt")) || File.Exists(Path.Combine(lineRoot, "Scripts", "Extend", cleanScriptName + ".txt")))
+				{
+					return true;
+				}
+			}
+			catch
+			{
+				return false;
+			}
+		}
+		return false;
+	}
+
+	private static void AppendExclusiveHookConflictWarnings(List<ModSummary> summaries, List<LoadedMod> enabledMods)
+	{
+		var exclusiveHooks = enabledMods.SelectMany((LoadedMod mod) => mod.Hooks.Where((ModHookDefinition hook) => !string.IsNullOrWhiteSpace(hook.Hook) && (string.Equals(hook.Mode, "exclusive", StringComparison.OrdinalIgnoreCase) || string.Equals(hook.Mode, "replace", StringComparison.OrdinalIgnoreCase))).Select((ModHookDefinition hook) => new { Mod = mod, Hook = hook }));
+		foreach (var conflictGroup in exclusiveHooks.GroupBy((item) => item.Hook.Hook, StringComparer.OrdinalIgnoreCase).Where((group) => group.Select((item) => item.Mod.RootPath).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1))
+		{
+			foreach (var item in conflictGroup)
+			{
+				AppendWarningForRoot(summaries, item.Mod.RootPath, "exclusive/replace hook conflict resolved by priority: " + conflictGroup.Key);
+			}
+		}
+	}
+
+	private static void AppendWarningForRoot(List<ModSummary> summaries, string rootPath, string warning)
+	{
+		foreach (ModSummary summary in summaries.Where((ModSummary summary) => string.Equals(summary.RootPath, rootPath, StringComparison.OrdinalIgnoreCase)))
+		{
+			AppendWarning(summary, warning);
+		}
 	}
 
 	private static void AppendDuplicateWarnings(List<ModSummary> summaries, IEnumerable<KeyValuePair<string, string>> keys, string kind)

@@ -1,0 +1,7 @@
+{
+  "id": "example-exclusive-conflict-a",
+  "name": "Example - Exclusive Conflict A",
+  "author": "OpenEdge",
+  "version": "1.0.0",
+  "enabled": false
+}

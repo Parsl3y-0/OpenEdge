@@ -1,0 +1,2 @@
+This script emits a custom hook. If no other enabled mod handles it, the fallback script runs next.
+RUNHOOK:example.customFlowBody,exampleCustomHookFallbackBody

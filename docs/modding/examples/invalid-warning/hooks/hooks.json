@@ -1,0 +1,24 @@
+{
+  "hooks": [
+    {
+      "hook": "methodPicker",
+      "script": "missingExampleScript",
+      "mode": "exclusive"
+    },
+    {
+      "hook": "",
+      "script": "exampleMissingHookName",
+      "mode": "additive"
+    },
+    {
+      "hook": "sessionEnd",
+      "script": "",
+      "mode": "additive"
+    },
+    {
+      "hook": "orgasmDecision",
+      "script": "exampleUnknownMode",
+      "mode": "surprise"
+    }
+  ]
+}

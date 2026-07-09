@@ -977,6 +977,8 @@ Outcome effects are conservative and explicit. If an outcome is not marked `allo
 
 This system is still being expanded. For now, prefer small test mods and check `runtime/local/app/debug/session-trace.log` for `mod-hooks` and `mod-outcome` entries when debugging.
 
+The Mods manager warns about common hook/outcome issues, including missing hook names/scripts, unknown hook modes, duplicate outcome keys, missing hook script files, and enabled `exclusive`/`replace` hook conflicts that will be resolved by priority.
+
 ## Practical mod design checklist
 
 Before adding a tag, ask:
@@ -997,6 +999,16 @@ Before adding a setting, ask:
 4. Should it support queued asks?
 
 If yes, a simple mod setting is probably appropriate.
+
+## Example fixtures
+
+Disabled-by-default framework examples live under:
+
+```txt
+docs/modding/examples/
+```
+
+Copy an example folder into `runtime/local/app/mods/`, enable it in the Mods manager, then Reload App/restart to test hook/outcome behavior. See `docs/modding/examples/README.md` for the fixture list.
 
 ## Testing a mod
 
@@ -1019,4 +1031,4 @@ If yes, a simple mod setting is probably appropriate.
 - Mod line roots are supported.
 - Derived context JSON is supported for `ISCONTEXT:` and `SETCONTEXTMEDIA:` script predicates.
 - First-class hooks/outcomes are partially implemented; `sessionIntro`, `methodPicker`, `changeState`, `sessionEnd`, `edgeOpportunity`, `orgasmDecision`, `RUNSCRIPT:`, `RUNHOOK:`, and `OUTCOME:` are available. Additive/base pooling currently applies to `methodPicker`; richer pooling and fallback behavior are still planned.
-- Invalid JSON reporting is still first-pass; keep files valid and simple.
+- Invalid JSON reporting and hook/outcome warnings are still first-pass; keep files valid and simple.

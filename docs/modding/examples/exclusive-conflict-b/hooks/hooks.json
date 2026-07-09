@@ -1,0 +1,10 @@
+{
+  "hooks": [
+    {
+      "hook": "sessionEnd",
+      "script": "exampleConflictBEnding",
+      "mode": "replace",
+      "allowedWhileChaste": true
+    }
+  ]
+}

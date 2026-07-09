@@ -1,0 +1,11 @@
+{
+  "hooks": [
+    {
+      "hook": "methodPicker",
+      "script": "exampleAdditiveMethod",
+      "mode": "additive",
+      "weight": 25,
+      "allowedWhileChaste": true
+    }
+  ]
+}

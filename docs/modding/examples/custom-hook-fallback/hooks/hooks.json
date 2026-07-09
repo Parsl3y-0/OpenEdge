@@ -1,0 +1,10 @@
+{
+  "hooks": [
+    {
+      "hook": "methodPicker",
+      "script": "exampleCustomHookLauncher",
+      "mode": "exclusive",
+      "allowedWhileChaste": true
+    }
+  ]
+}

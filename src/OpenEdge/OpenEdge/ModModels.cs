@@ -39,6 +39,8 @@ public sealed class ModSummary
 
 	public int HookCount { get; init; }
 
+	public int OverrideHookCount { get; init; }
+
 	public int OutcomeCount { get; init; }
 
 	public bool HasLines { get; init; }

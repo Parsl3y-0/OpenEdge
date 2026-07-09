@@ -1,0 +1,10 @@
+{
+  "hooks": [
+    {
+      "hook": "edgeOpportunity",
+      "script": "exampleCustomEdge",
+      "mode": "exclusive",
+      "allowedWhileChaste": true
+    }
+  ]
+}

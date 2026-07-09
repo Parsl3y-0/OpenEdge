@@ -149,7 +149,7 @@ public partial class ModsPopup : Grid, IComponentConnector
 		{
 			details += " · Author: " + summary.Author;
 		}
-		details += " · Priority: " + summary.Priority + " · Settings: " + summary.SettingCount + " · Tags: " + summary.TagCount + " · Contexts: " + summary.ContextCount + " · Hooks: " + summary.HookCount + " · Outcomes: " + summary.OutcomeCount + " · Lines: " + (summary.HasLines ? "yes" : "no");
+		details += " · Priority: " + summary.Priority + " · Settings: " + summary.SettingCount + " · Tags: " + summary.TagCount + " · Contexts: " + summary.ContextCount + " · Hooks: " + summary.HookCount + " · Overrides: " + summary.OverrideHookCount + " · Outcomes: " + summary.OutcomeCount + " · Lines: " + (summary.HasLines ? "yes" : "no");
 		textPanel.Children.Add(new TextBlock
 		{
 			Text = details,

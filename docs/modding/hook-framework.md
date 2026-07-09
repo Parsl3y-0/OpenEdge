@@ -366,7 +366,7 @@ When no mods are installed or enabled:
 
 ## Diagnostics
 
-Trace logging should include:
+Trace logging includes selected/skipped/completed hooks and applied outcomes. Continue improving trace coverage for:
 
 ```text
 mod-hooks - loaded hook count per mod
@@ -374,6 +374,19 @@ mod-hooks - hook=<name> eligible=<count> selected=<mod/script/mode>
 mod-hooks - skipped hook reason=<reason>
 mod-outcome - kind=<kind> key=<key> mod=<id> effects=<...>
 mod-hooks - fallback to base hook=<name>
+```
+
+Mods manager warnings include:
+
+```text
+missing hook name
+missing hook script field
+unknown hook mode
+duplicate hook registration
+missing outcome kind/key
+duplicate outcome kind/key
+missing hook script file
+exclusive/replace hook conflicts resolved by priority
 ```
 
 Diagnostics export should include safe summaries of:

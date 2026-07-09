@@ -1,0 +1,2 @@
+This is a custom edge outcome. It counts as an edge because outcomes.json says so.
+OUTCOME:edge,exampleEdge

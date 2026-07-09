@@ -1,0 +1,7 @@
+{
+  "id": "example-invalid-warning",
+  "name": "Example - Invalid Warning Fixture",
+  "author": "OpenEdge",
+  "version": "1.0.0",
+  "enabled": false
+}

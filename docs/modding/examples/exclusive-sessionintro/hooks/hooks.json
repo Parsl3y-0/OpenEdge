@@ -1,0 +1,10 @@
+{
+  "hooks": [
+    {
+      "hook": "sessionIntro",
+      "script": "exampleSessionIntro",
+      "mode": "exclusive",
+      "allowedWhileChaste": true
+    }
+  ]
+}
