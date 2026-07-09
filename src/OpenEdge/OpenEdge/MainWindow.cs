@@ -65,6 +65,8 @@ public partial class MainWindow : Page, IComponentConnector
 
 	private readonly Stack<ModHookRuntimeContext> activeModHooks = new Stack<ModHookRuntimeContext>();
 
+	private bool sessionEndModHookCompleted;
+
 	private int[] ctPointer = new int[2];
 
 	private Storyboard[] textCenterStoryboards;
@@ -479,11 +481,19 @@ public partial class MainWindow : Page, IComponentConnector
 		setVar("strokeAmount", strokeAmount.ToString() ?? "");
 		setVar("edgesDone", edgesDone.ToString() ?? "");
 		removeSpecialButtons("Please...", 6);
-		if (sessionTimer.Elapsed.TotalSeconds >= (double)sessionLength && !IsSessionEndingScriptActive())
+		if (sessionTimer.Elapsed.TotalSeconds >= (double)sessionLength)
 		{
-			SessionTraceLogger.Info("script-picker", "branch=sessionEndExpired");
-			SelectSessionEndingScript();
-			return;
+			if (sessionEndModHookCompleted)
+			{
+				SessionTraceLogger.Info("script-picker", "branch=sessionEndModCompleted");
+				return;
+			}
+			if (!IsSessionEndingScriptActive())
+			{
+				SessionTraceLogger.Info("script-picker", "branch=sessionEndExpired");
+				SelectSessionEndingScript();
+				return;
+			}
 		}
 		if (random.Next(10) > 7 && getTFlag("kneel"))
 		{
@@ -1011,6 +1021,10 @@ public partial class MainWindow : Page, IComponentConnector
 		if (!string.Equals(context.HookName, hookName, StringComparison.OrdinalIgnoreCase))
 		{
 			SessionTraceLogger.Info("mod-hooks", "complete mismatch requested=" + hookName + " active=" + context.HookName);
+		}
+		if (context.Handled && string.Equals(context.HookName, "sessionEnd", StringComparison.OrdinalIgnoreCase))
+		{
+			sessionEndModHookCompleted = true;
 		}
 		SessionTraceLogger.Info("mod-hooks", "complete hook=" + context.HookName + " mod=" + context.SourceModId + " script=" + context.Script + " handled=" + context.Handled);
 	}
@@ -2175,6 +2189,7 @@ public partial class MainWindow : Page, IComponentConnector
 		boredByImages.Start();
 		linkStopWatch.Start();
 		censorCheck();
+		sessionEndModHookCompleted = false;
 		sessionActive = true;
 		base.Dispatcher.Invoke(delegate
 		{
