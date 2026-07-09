@@ -55,6 +55,12 @@ public partial class LineReader : Window, IComponentConnector
 
 	public void getMods()
 	{
+		mods = GetCurrentLineRoots();
+	}
+
+	private List<string> GetCurrentLineRoots()
+	{
+		List<string> roots = new List<string>();
 		if (!Directory.Exists(RuntimePaths.LinesDir))
 		{
 			Directory.CreateDirectory(RuntimePaths.LinesDir);
@@ -62,16 +68,16 @@ public partial class LineReader : Window, IComponentConnector
 		string[] directories = Directory.GetDirectories(RuntimePaths.LinesDir);
 		for (int i = 0; i < directories.Length; i++)
 		{
-			string text = directories[i] + "\\";
-			if (Directory.Exists(text + "Scripts") && Directory.Exists(text + "Vocab"))
+			if (Directory.Exists(Path.Combine(directories[i], "Scripts")) && Directory.Exists(Path.Combine(directories[i], "Vocab")))
 			{
-				mods.Add(text);
+				roots.Add(directories[i]);
 			}
 		}
 		foreach (string enabledLineRoot in ModService.GetEnabledLineRoots())
 		{
-			mods.Add(enabledLineRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar);
+			roots.Add(enabledLineRoot);
 		}
+		return roots.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 	}
 
 	public List<string> getVocabList(string vocabName)
@@ -177,15 +183,17 @@ public partial class LineReader : Window, IComponentConnector
 		}
 		string[] collection = new string[0];
 		List<string> list = new List<string>();
-		foreach (string mod in mods)
+		foreach (string mod in GetCurrentLineRoots())
 		{
-			if (File.Exists(mod + text + "\\Base\\" + fileName + ".txt"))
+			string basePath = Path.Combine(mod, text, "Base", fileName + ".txt");
+			string extendPath = Path.Combine(mod, text, "Extend", fileName + ".txt");
+			if (File.Exists(basePath))
 			{
-				collection = File.ReadAllLines(mod + text + "\\Base\\" + fileName + ".txt");
+				collection = File.ReadAllLines(basePath);
 			}
-			if (File.Exists(mod + text + "\\Extend\\" + fileName + ".txt"))
+			if (File.Exists(extendPath))
 			{
-				list.AddRange(File.ReadAllLines(mod + text + "\\Extend\\" + fileName + ".txt"));
+				list.AddRange(File.ReadAllLines(extendPath));
 			}
 		}
 		list.AddRange(collection);
@@ -211,15 +219,17 @@ public partial class LineReader : Window, IComponentConnector
 		}
 		string[] collection = new string[0];
 		List<string> list = new List<string>();
-		foreach (string mod in mods)
+		foreach (string mod in GetCurrentLineRoots())
 		{
-			if (File.Exists(mod + text + "\\Base\\" + fileName + ".txt"))
+			string basePath = Path.Combine(mod, text, "Base", fileName + ".txt");
+			string extendPath = Path.Combine(mod, text, "Extend", fileName + ".txt");
+			if (File.Exists(basePath))
 			{
-				collection = File.ReadAllLines(mod + text + "\\Base\\" + fileName + ".txt");
+				collection = File.ReadAllLines(basePath);
 			}
-			if (File.Exists(mod + text + "\\Extend\\" + fileName + ".txt"))
+			if (File.Exists(extendPath))
 			{
-				list.AddRange(File.ReadAllLines(mod + text + "\\Extend\\" + fileName + ".txt"));
+				list.AddRange(File.ReadAllLines(extendPath));
 			}
 		}
 		list.AddRange(collection);
@@ -251,6 +261,10 @@ public partial class LineReader : Window, IComponentConnector
 					text += "\n";
 				}
 			}
+		}
+		if (!text.Contains("{") && !string.IsNullOrWhiteSpace(text))
+		{
+			return new string[1][] { text.Split('\n') };
 		}
 		array = getPart(text);
 		array2 = getCondition(text);

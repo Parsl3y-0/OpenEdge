@@ -465,6 +465,7 @@ public partial class MainWindow : Page, IComponentConnector
 
 	public void pickScript()
 	{
+		SessionTraceLogger.Info("script-picker", "enter elapsed=" + sessionTimer.Elapsed.TotalSeconds + " target=" + sessionLength + " currentScript=" + currentScript?.GetType().Name + " linked=" + linked + " state=" + currentState);
 		hideFavor();
 		censorCheck();
 		unSetTag();
@@ -480,16 +481,19 @@ public partial class MainWindow : Page, IComponentConnector
 		removeSpecialButtons("Please...", 6);
 		if (sessionTimer.Elapsed.TotalSeconds >= (double)sessionLength && !IsSessionEndingScriptActive())
 		{
+			SessionTraceLogger.Info("script-picker", "branch=sessionEndExpired");
 			SelectSessionEndingScript();
 			return;
 		}
 		if (random.Next(10) > 7 && getTFlag("kneel"))
 		{
+			SessionTraceLogger.Info("script-picker", "branch=kneelNo-random");
 			currentScript = new OpenEdge.scripts.KneelNo(this, currentScript);
 			return;
 		}
 		if (!linked)
 		{
+			SessionTraceLogger.Info("script-picker", "branch=strokeLink");
 			strokeLink();
 			linked = true;
 			return;
@@ -500,14 +504,17 @@ public partial class MainWindow : Page, IComponentConnector
 		currentState = "module";
 		if (getTFlag("kneel"))
 		{
+			SessionTraceLogger.Info("script-picker", "branch=kneelNo");
 			currentScript = new OpenEdge.scripts.KneelNo(this, currentScript);
 		}
 		else if (!settingsRegistry.HasCompletedFirstAnalSession() && isSettingEnabled("anal"))
 		{
+			SessionTraceLogger.Info("script-picker", "branch=firstAnal");
 			currentScript = new OpenEdge.scripts.Anal(this, currentScript);
 		}
 		else if (!getTFlag("sessionIntro"))
 		{
+			SessionTraceLogger.Info("script-picker", "branch=sessionIntro");
 			if (RunModHookBeforeBase("sessionIntro"))
 			{
 				setTFlag("sessionIntro");
@@ -517,20 +524,36 @@ public partial class MainWindow : Page, IComponentConnector
 		}
 		else if (!getTFlag("queuedAskHandled"))
 		{
+			SessionTraceLogger.Info("script-picker", "branch=queuedAskCheck");
 			QueueMediaDiscoveredSettingAsks();
 			string nextEligibleQueuedSettingAsk = GetNextEligibleQueuedSettingAsk();
 			if (!string.IsNullOrWhiteSpace(nextEligibleQueuedSettingAsk))
 			{
 				currentScript = new AskFlag(this, nextEligibleQueuedSettingAsk);
 				currentScript.setFlag("queuedAskHandled", temp: true);
+				return;
+			}
+			SessionTraceLogger.Info("script-picker", "branch=queuedAskNone");
+			setTFlag("queuedAskHandled");
+			if (sessionTimer.Elapsed.TotalSeconds >= (double)sessionLength)
+			{
+				SessionTraceLogger.Info("script-picker", "branch=sessionEnd");
+				SelectSessionEndingScript();
+			}
+			else
+			{
+				SessionTraceLogger.Info("script-picker", "branch=methodPicker");
+				methodPicker();
 			}
 		}
 		else if (sessionTimer.Elapsed.TotalSeconds >= (double)sessionLength)
 		{
+			SessionTraceLogger.Info("script-picker", "branch=sessionEnd");
 			SelectSessionEndingScript();
 		}
 		else
 		{
+			SessionTraceLogger.Info("script-picker", "branch=methodPicker");
 			methodPicker();
 		}
 	}
@@ -592,6 +615,7 @@ public partial class MainWindow : Page, IComponentConnector
 
 	private void methodPicker()
 	{
+		SessionTraceLogger.Info("script-picker", "methodPicker entered petPlay=" + getTFlag("petPlay") + " wearingChastity=" + isSettingEnabled("wearingChastity") + " elapsed=" + sessionTimer.Elapsed.TotalSeconds);
 		if (RunMethodPickerModHook())
 		{
 			return;
