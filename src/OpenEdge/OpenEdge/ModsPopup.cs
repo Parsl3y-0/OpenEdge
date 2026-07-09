@@ -111,16 +111,16 @@ public partial class ModsPopup : Grid, IComponentConnector
 			StatusText.Text = "0 mods detected.";
 			return;
 		}
-		foreach (ModSummary summary in summaries)
+		for (int i = 0; i < summaries.Count; i++)
 		{
-			ModsListPanel.Children.Add(CreateModRow(summary));
+			ModsListPanel.Children.Add(CreateModRow(summaries[i], i + 1, summaries.Count));
 		}
 		int enabledCount = summaries.Count((ModSummary mod) => mod.Enabled && string.IsNullOrWhiteSpace(mod.Error));
 		int warningCount = summaries.Count((ModSummary mod) => !string.IsNullOrWhiteSpace(mod.Error));
-		UpdateStatus(summaries.Count + " mod(s) detected. " + enabledCount + " enabled. " + warningCount + " warning/error item(s).");
+		UpdateStatus(summaries.Count + " mod(s) detected. " + enabledCount + " enabled. " + warningCount + " warning/error item(s). Top enabled mod has highest priority.");
 	}
 
-	private UIElement CreateModRow(ModSummary summary)
+	private UIElement CreateModRow(ModSummary summary, int rank, int totalMods)
 	{
 		Border border = new Border
 		{
@@ -149,7 +149,7 @@ public partial class ModsPopup : Grid, IComponentConnector
 		{
 			details += " · Author: " + summary.Author;
 		}
-		details += " · Priority: " + summary.Priority + " · Settings: " + summary.SettingCount + " · Tags: " + summary.TagCount + " · Contexts: " + summary.ContextCount + " · Hooks: " + summary.HookCount + " · Overrides: " + summary.OverrideHookCount + " · Outcomes: " + summary.OutcomeCount + " · Lines: " + (summary.HasLines ? "yes" : "no");
+		details += " · Load order: #" + rank + " of " + totalMods + " (top wins) · Priority score: " + summary.Priority + " · Settings: " + summary.SettingCount + " · Tags: " + summary.TagCount + " · Contexts: " + summary.ContextCount + " · Hooks: " + summary.HookCount + " · Overrides: " + summary.OverrideHookCount + " · Outcomes: " + summary.OutcomeCount + " · Lines: " + (summary.HasLines ? "yes" : "no");
 		textPanel.Children.Add(new TextBlock
 		{
 			Text = details,
@@ -179,7 +179,7 @@ public partial class ModsPopup : Grid, IComponentConnector
 		Button upButton = new Button
 		{
 			Content = "↑",
-			ToolTip = "Move this mod earlier in priority order",
+			ToolTip = "Move this mod up. Higher rows win hook conflicts.",
 			Padding = new Thickness(10.0, 6.0, 10.0, 6.0),
 			Margin = new Thickness(0.0, 0.0, 6.0, 0.0),
 			Tag = summary.Id
@@ -189,7 +189,7 @@ public partial class ModsPopup : Grid, IComponentConnector
 		Button downButton = new Button
 		{
 			Content = "↓",
-			ToolTip = "Move this mod later in priority order",
+			ToolTip = "Move this mod down. Lower rows lose hook conflicts.",
 			Padding = new Thickness(10.0, 6.0, 10.0, 6.0),
 			Margin = new Thickness(0.0, 0.0, 12.0, 0.0),
 			Tag = summary.Id

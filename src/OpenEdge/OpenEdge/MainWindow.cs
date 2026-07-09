@@ -67,6 +67,8 @@ public partial class MainWindow : Page, IComponentConnector
 
 	private bool sessionEndModHookCompleted;
 
+	private DevSessionToolsWindow devSessionToolsWindow;
+
 	private int[] ctPointer = new int[2];
 
 	private Storyboard[] textCenterStoryboards;
@@ -573,6 +575,72 @@ public partial class MainWindow : Page, IComponentConnector
 		return currentScript is Ending || currentScript is ChastitySessionEnd || currentScript is PetPlayOff;
 	}
 
+	public void DevTriggerMethodPicker()
+	{
+		SessionTraceLogger.Info("dev-tools", "trigger=methodPicker");
+		base.Dispatcher.Invoke(delegate
+		{
+			linked = true;
+			currentState = "module";
+			methodPicker();
+		});
+	}
+
+	public void DevTriggerSessionEnd()
+	{
+		SessionTraceLogger.Info("dev-tools", "trigger=sessionEnd");
+		base.Dispatcher.Invoke(delegate
+		{
+			sessionEndModHookCompleted = false;
+			SelectSessionEndingScript();
+		});
+	}
+
+	public void DevTriggerHook(string hookName)
+	{
+		hookName = (hookName ?? "").Trim();
+		if (hookName.Length == 0)
+		{
+			return;
+		}
+		SessionTraceLogger.Info("dev-tools", "trigger=hook hook=" + hookName);
+		base.Dispatcher.Invoke(delegate
+		{
+			RunModHookFromScript(hookName);
+		});
+	}
+
+	public void DevTriggerScript(string scriptName)
+	{
+		scriptName = (scriptName ?? "").Trim();
+		if (scriptName.Length == 0)
+		{
+			return;
+		}
+		SessionTraceLogger.Info("dev-tools", "trigger=script script=" + scriptName);
+		base.Dispatcher.Invoke(delegate
+		{
+			GenericScript script = new GenericScript(this, currentScript, scriptName);
+			if (script.allText.Length == 0)
+			{
+				SessionTraceLogger.Info("dev-tools", "script skipped reason=missing-or-empty script=" + scriptName);
+				return;
+			}
+			currentScript = script;
+			currentState = "module";
+		});
+	}
+
+	public void DevTriggerEdgeOpportunity()
+	{
+		DevTriggerHook("edgeOpportunity");
+	}
+
+	public void DevTriggerOrgasmDecision()
+	{
+		DevTriggerHook("orgasmDecision");
+	}
+
 	private void SelectSessionEndingScript()
 	{
 		SessionTraceLogger.Info("session", "session time expired elapsed=" + sessionTimer.Elapsed.TotalSeconds + " target=" + sessionLength + " currentScript=" + currentScript?.GetType().Name);
@@ -975,15 +1043,10 @@ public partial class MainWindow : Page, IComponentConnector
 
 	private ModHookDefinition SelectModHook(List<ModHookDefinition> hooks)
 	{
-		List<ModHookDefinition> replaceHooks = hooks.Where((ModHookDefinition hook) => string.Equals(hook.Mode, "replace", StringComparison.OrdinalIgnoreCase)).ToList();
-		if (replaceHooks.Count > 0)
+		List<ModHookDefinition> overrideHooks = hooks.Where((ModHookDefinition hook) => string.Equals(hook.Mode, "replace", StringComparison.OrdinalIgnoreCase) || string.Equals(hook.Mode, "exclusive", StringComparison.OrdinalIgnoreCase)).ToList();
+		if (overrideHooks.Count > 0)
 		{
-			return replaceHooks[0];
-		}
-		List<ModHookDefinition> exclusiveHooks = hooks.Where((ModHookDefinition hook) => string.Equals(hook.Mode, "exclusive", StringComparison.OrdinalIgnoreCase)).ToList();
-		if (exclusiveHooks.Count > 0)
-		{
-			return exclusiveHooks[0];
+			return overrideHooks[0];
 		}
 		List<ModHookDefinition> additiveHooks = hooks.Where((ModHookDefinition hook) => string.Equals(hook.Mode, "additive", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(hook.Mode)).ToList();
 		if (additiveHooks.Count > 0)
@@ -4747,6 +4810,11 @@ public partial class MainWindow : Page, IComponentConnector
 	{
 		base.Dispatcher.Invoke(delegate
 		{
+			if (ShouldShowDevSessionToolsButton() && !buttonNames.Any((string name) => string.Equals(name?.Trim(), "Dev", StringComparison.OrdinalIgnoreCase)))
+			{
+				buttonNames = buttonNames.Concat(new string[1] { "Dev" }).ToArray();
+				types = types.Concat(new int[1] { 7 }).ToArray();
+			}
 			buttonStackPanel.Children.Clear();
 			talkButtons = new Btn[buttonNames.Length];
 			for (int i = 0; i < buttonNames.Length; i++)
@@ -4774,14 +4842,42 @@ public partial class MainWindow : Page, IComponentConnector
 	{
 		timed++;
 		Btn button = (Btn)sender;
-		buttonStackPanel.Visibility = Visibility.Collapsed;
 		TextBlock textBlock = (TextBlock)button.Content;
 		string buttonText = textBlock.Text.Trim();
+		if (button.type == 7)
+		{
+			OpenDevSessionToolsWindow();
+			return;
+		}
+		buttonStackPanel.Visibility = Visibility.Collapsed;
 		setTPOTo0((TextBlock)textPanel.Children[textPanel.Children.Count - 1]);
 		Task.Run(delegate
 		{
 			handleButtonPress(buttonText, button.type);
 		});
+	}
+
+	private bool ShouldShowDevSessionToolsButton()
+	{
+		return sessionActive && isSettingEnabled("devSessionTools");
+	}
+
+	private void OpenDevSessionToolsWindow()
+	{
+		SessionTraceLogger.Info("dev-tools", "open");
+		if (devSessionToolsWindow == null || !devSessionToolsWindow.IsLoaded)
+		{
+			devSessionToolsWindow = new DevSessionToolsWindow(this);
+			devSessionToolsWindow.Closed += delegate
+			{
+				devSessionToolsWindow = null;
+			};
+			devSessionToolsWindow.Show();
+		}
+		else
+		{
+			devSessionToolsWindow.Activate();
+		}
 	}
 
 	private void handleButtonPress(string btnString, int type)
