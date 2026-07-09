@@ -50,6 +50,21 @@ public partial class MainWindow : Page, IComponentConnector
 
 	private Random random = new Random();
 
+	private sealed class ModHookRuntimeContext
+	{
+		public string HookName { get; init; } = "";
+
+		public string SourceModId { get; init; } = "";
+
+		public string Script { get; init; } = "";
+
+		public string Mode { get; init; } = "";
+
+		public bool Handled { get; set; }
+	}
+
+	private readonly Stack<ModHookRuntimeContext> activeModHooks = new Stack<ModHookRuntimeContext>();
+
 	private int[] ctPointer = new int[2];
 
 	private Storyboard[] textCenterStoryboards;
@@ -493,6 +508,11 @@ public partial class MainWindow : Page, IComponentConnector
 		}
 		else if (!getTFlag("sessionIntro"))
 		{
+			if (RunModHookBeforeBase("sessionIntro"))
+			{
+				setTFlag("sessionIntro");
+				return;
+			}
 			currentScript = new SessionIntro(this);
 		}
 		else if (!getTFlag("queuedAskHandled"))
@@ -523,6 +543,10 @@ public partial class MainWindow : Page, IComponentConnector
 	private void SelectSessionEndingScript()
 	{
 		SessionTraceLogger.Info("session", "session time expired elapsed=" + sessionTimer.Elapsed.TotalSeconds + " target=" + sessionLength + " currentScript=" + currentScript?.GetType().Name);
+		if (RunModHookBeforeBase("sessionEnd"))
+		{
+			return;
+		}
 		if (getTFlag("petPlay"))
 		{
 			currentScript = new PetPlayOff(this);
@@ -568,6 +592,10 @@ public partial class MainWindow : Page, IComponentConnector
 
 	private void methodPicker()
 	{
+		if (RunMethodPickerModHook())
+		{
+			return;
+		}
 		if (!getTFlag("petPlay") && !isSettingEnabled("wearingChastity"))
 		{
 			switch (random.Next(100))
@@ -620,7 +648,7 @@ public partial class MainWindow : Page, IComponentConnector
 			case 6:
 				if (sessionTimer.Elapsed.TotalMinutes > 2.0 && sessionLength > 300)
 				{
-					currentScript = new ChangeState(this);
+					SelectChangeStateScript();
 					return;
 				}
 				break;
@@ -751,7 +779,7 @@ public partial class MainWindow : Page, IComponentConnector
 			case 6:
 				if (sessionTimer.Elapsed.TotalMinutes > 1.0 && sessionLength > 240)
 				{
-					currentScript = new ChangeState(this);
+					SelectChangeStateScript();
 					return;
 				}
 				break;
@@ -776,6 +804,259 @@ public partial class MainWindow : Page, IComponentConnector
 			}
 		}
 		methodPicker();
+	}
+
+	private void SelectChangeStateScript()
+	{
+		if (RunModHookBeforeBase("changeState"))
+		{
+			return;
+		}
+		currentScript = new ChangeState(this);
+	}
+
+	private bool RunMethodPickerModHook()
+	{
+		return RunModHookWithBasePool("methodPicker", baseWeight: 100);
+	}
+
+	private bool RunModHookBeforeBase(string hookName)
+	{
+		return RunModHook(hookName, beforeBase: true);
+	}
+
+	public bool RunModHookFromScript(string hookName)
+	{
+		return RunModHook(hookName, beforeBase: false);
+	}
+
+	private bool RunModHookWithBasePool(string hookName, int baseWeight)
+	{
+		hookName = (hookName ?? "").Trim();
+		if (hookName.Length == 0)
+		{
+			return false;
+		}
+		if (activeModHooks.Count >= 20)
+		{
+			SessionTraceLogger.Info("mod-hooks", "skipped hook=" + hookName + " reason=max-depth");
+			return false;
+		}
+		if (activeModHooks.Any((ModHookRuntimeContext context) => string.Equals(context.HookName, hookName, StringComparison.OrdinalIgnoreCase)))
+		{
+			SessionTraceLogger.Info("mod-hooks", "skipped hook=" + hookName + " reason=reentrant");
+			return false;
+		}
+		List<ModHookDefinition> eligibleHooks = GetEligibleModHooks(hookName);
+		List<ModHookDefinition> beforeBaseHooks = eligibleHooks.Where(IsBeforeBaseHookMode).ToList();
+		if (TryRunSelectedModHook(hookName, beforeBaseHooks))
+		{
+			return true;
+		}
+		List<ModHookDefinition> additiveHooks = eligibleHooks.Where(IsAdditiveHookMode).ToList();
+		if (additiveHooks.Count == 0)
+		{
+			return false;
+		}
+		int totalWeight = Math.Max(1, baseWeight) + additiveHooks.Sum((ModHookDefinition hook) => Math.Max(1, hook.Weight));
+		int pick = random.Next(totalWeight);
+		if (pick < Math.Max(1, baseWeight))
+		{
+			SessionTraceLogger.Info("mod-hooks", "hook=" + hookName + " selected=base additive=" + additiveHooks.Count + " baseWeight=" + baseWeight);
+			return false;
+		}
+		ModHookDefinition selected = PickWeightedModHook(additiveHooks);
+		return TryRunSelectedModHook(hookName, new List<ModHookDefinition> { selected });
+	}
+
+	private bool RunModHook(string hookName, bool beforeBase)
+	{
+		hookName = (hookName ?? "").Trim();
+		if (hookName.Length == 0)
+		{
+			return false;
+		}
+		if (activeModHooks.Count >= 20)
+		{
+			SessionTraceLogger.Info("mod-hooks", "skipped hook=" + hookName + " reason=max-depth");
+			return false;
+		}
+		if (activeModHooks.Any((ModHookRuntimeContext context) => string.Equals(context.HookName, hookName, StringComparison.OrdinalIgnoreCase)))
+		{
+			SessionTraceLogger.Info("mod-hooks", "skipped hook=" + hookName + " reason=reentrant");
+			return false;
+		}
+		List<ModHookDefinition> eligibleHooks = GetEligibleModHooks(hookName);
+		if (beforeBase)
+		{
+			eligibleHooks = eligibleHooks.Where(IsBeforeBaseHookMode).ToList();
+		}
+		if (TryRunSelectedModHook(hookName, eligibleHooks))
+		{
+			return true;
+		}
+		SessionTraceLogger.Info("mod-hooks", "hook=" + hookName + " eligible=0 beforeBase=" + beforeBase);
+		return false;
+	}
+
+	private bool TryRunSelectedModHook(string hookName, List<ModHookDefinition> eligibleHooks)
+	{
+		while (eligibleHooks.Count > 0)
+		{
+			ModHookDefinition selected = SelectModHook(eligibleHooks);
+			GenericScript script = new GenericScript(this, currentScript, selected.Script, hookName);
+			if (script.allText.Length == 0)
+			{
+				SessionTraceLogger.Info("mod-hooks", "skipped hook=" + hookName + " mod=" + selected.SourceModId + " script=" + selected.Script + " reason=missing-or-empty-script");
+				eligibleHooks.Remove(selected);
+				continue;
+			}
+			BeginModHook(hookName, selected);
+			currentScript = script;
+			if (string.Equals(hookName, "methodPicker", StringComparison.OrdinalIgnoreCase))
+			{
+				currentState = "module";
+			}
+			return true;
+		}
+		return false;
+	}
+
+	private List<ModHookDefinition> GetEligibleModHooks(string hookName)
+	{
+		List<ModHookDefinition> eligibleHooks = ModService.GetEnabledHookDefinitions().Where(delegate(ModHookDefinition hook)
+		{
+			return string.Equals(hook.Hook, hookName, StringComparison.OrdinalIgnoreCase) && IsModHookEligible(hook);
+		}).ToList();
+		SessionTraceLogger.Info("mod-hooks", "hook=" + hookName + " eligible=" + eligibleHooks.Count);
+		return eligibleHooks;
+	}
+
+	private static bool IsBeforeBaseHookMode(ModHookDefinition hook)
+	{
+		return string.Equals(hook.Mode, "exclusive", StringComparison.OrdinalIgnoreCase) || string.Equals(hook.Mode, "replace", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static bool IsAdditiveHookMode(ModHookDefinition hook)
+	{
+		return string.Equals(hook.Mode, "additive", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(hook.Mode);
+	}
+
+	private ModHookDefinition SelectModHook(List<ModHookDefinition> hooks)
+	{
+		List<ModHookDefinition> replaceHooks = hooks.Where((ModHookDefinition hook) => string.Equals(hook.Mode, "replace", StringComparison.OrdinalIgnoreCase)).ToList();
+		if (replaceHooks.Count > 0)
+		{
+			return replaceHooks[0];
+		}
+		List<ModHookDefinition> exclusiveHooks = hooks.Where((ModHookDefinition hook) => string.Equals(hook.Mode, "exclusive", StringComparison.OrdinalIgnoreCase)).ToList();
+		if (exclusiveHooks.Count > 0)
+		{
+			return exclusiveHooks[0];
+		}
+		List<ModHookDefinition> additiveHooks = hooks.Where((ModHookDefinition hook) => string.Equals(hook.Mode, "additive", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(hook.Mode)).ToList();
+		if (additiveHooks.Count > 0)
+		{
+			return PickWeightedModHook(additiveHooks);
+		}
+		List<ModHookDefinition> fallbackHooks = hooks.Where((ModHookDefinition hook) => string.Equals(hook.Mode, "fallback", StringComparison.OrdinalIgnoreCase)).ToList();
+		if (fallbackHooks.Count > 0)
+		{
+			return fallbackHooks[0];
+		}
+		return hooks[0];
+	}
+
+	private void BeginModHook(string hookName, ModHookDefinition selected)
+	{
+		activeModHooks.Push(new ModHookRuntimeContext
+		{
+			HookName = hookName,
+			SourceModId = selected.SourceModId,
+			Script = selected.Script,
+			Mode = selected.Mode
+		});
+		SessionTraceLogger.Info("mod-hooks", "hook=" + hookName + " selected mod=" + selected.SourceModId + " script=" + selected.Script + " mode=" + selected.Mode + " depth=" + activeModHooks.Count);
+	}
+
+	public void CompleteModHook(string hookName)
+	{
+		if (activeModHooks.Count == 0)
+		{
+			SessionTraceLogger.Info("mod-hooks", "complete hook=" + hookName + " with no active context");
+			return;
+		}
+		ModHookRuntimeContext context = activeModHooks.Pop();
+		if (!string.Equals(context.HookName, hookName, StringComparison.OrdinalIgnoreCase))
+		{
+			SessionTraceLogger.Info("mod-hooks", "complete mismatch requested=" + hookName + " active=" + context.HookName);
+		}
+		SessionTraceLogger.Info("mod-hooks", "complete hook=" + context.HookName + " mod=" + context.SourceModId + " script=" + context.Script + " handled=" + context.Handled);
+	}
+
+	private void MarkCurrentModHookHandled(string kind, string key)
+	{
+		if (activeModHooks.Count == 0)
+		{
+			return;
+		}
+		ModHookRuntimeContext context = activeModHooks.Peek();
+		context.Handled = true;
+		SessionTraceLogger.Info("mod-hooks", "handled hook=" + context.HookName + " mod=" + context.SourceModId + " outcome=" + kind + ":" + key);
+	}
+
+	private bool IsModHookEligible(ModHookDefinition hook)
+	{
+		if (isSettingEnabled("wearingChastity") && !hook.AllowedWhileChaste)
+		{
+			return false;
+		}
+		if (hook.AllowedStates != null && hook.AllowedStates.Count > 0 && !hook.AllowedStates.Any((string state) => string.Equals(state?.Trim(), currentState, StringComparison.OrdinalIgnoreCase)))
+		{
+			return false;
+		}
+		foreach (string setting in hook.RequiresSettings ?? new List<string>())
+		{
+			if (!string.IsNullOrWhiteSpace(setting) && !isSettingEnabled(setting.Trim()))
+			{
+				return false;
+			}
+		}
+		foreach (string setting in hook.ForbidsSettings ?? new List<string>())
+		{
+			if (!string.IsNullOrWhiteSpace(setting) && isSettingEnabled(setting.Trim()))
+			{
+				return false;
+			}
+		}
+		foreach (string context in hook.RequiresContexts ?? new List<string>())
+		{
+			if (!string.IsNullOrWhiteSpace(context) && !DerivedContextService.IsContextActive(this, context.Trim()))
+			{
+				return false;
+			}
+		}
+		List<string> mediaTags = (hook.RequiresMediaTags ?? new List<string>()).Where((string tag) => !string.IsNullOrWhiteSpace(tag)).Select((string tag) => tag.Trim()).ToList();
+		if (mediaTags.Count > 0 && !atLeastXMedia(string.Join(",", mediaTags), hook.MinimumMedia <= 0 ? 2 : hook.MinimumMedia))
+		{
+			return false;
+		}
+		return true;
+	}
+
+	private ModHookDefinition PickWeightedModHook(List<ModHookDefinition> hooks)
+	{
+		int totalWeight = hooks.Sum((ModHookDefinition hook) => Math.Max(1, hook.Weight));
+		int pick = random.Next(totalWeight);
+		foreach (ModHookDefinition hook in hooks)
+		{
+			pick -= Math.Max(1, hook.Weight);
+			if (pick < 0)
+			{
+				return hook;
+			}
+		}
+		return hooks[0];
 	}
 
 	// Compatibility API for old scripts and legacy progression state. New setting-like code should use SettingsRegistry helpers.
@@ -2624,6 +2905,10 @@ public partial class MainWindow : Page, IComponentConnector
 
 	public void methodEdge()
 	{
+		if (RunModHookBeforeBase("edgeOpportunity"))
+		{
+			return;
+		}
 		currentScript.talkLocked = true;
 		stroking = true;
 		setNewSpeed(maxBpm);
@@ -2646,6 +2931,10 @@ public partial class MainWindow : Page, IComponentConnector
 
 	public void methodEdgeHold()
 	{
+		if (RunModHookBeforeBase("edgeOpportunity"))
+		{
+			return;
+		}
 		if (!isSettingEnabled("edgeHold"))
 		{
 			SessionTraceLogger.Info("edgehold", "edgeHold disabled; falling back to normal edge");
@@ -2940,6 +3229,10 @@ public partial class MainWindow : Page, IComponentConnector
 
 	private void oD()
 	{
+		if (RunModHookBeforeBase("orgasmDecision"))
+		{
+			return;
+		}
 		setVar("sessionLength", 0.ToString() ?? "");
 		daysSinceFull = getFlagTimeDays("fullOrgasm");
 		difficulty += (double)getSettingValue("scoreMod") / 10.0;
@@ -3055,6 +3348,65 @@ public partial class MainWindow : Page, IComponentConnector
 		currentScript.addVar("denied,1");
 		stroking = false;
 		setTPText(lr.getVocab("deny"));
+	}
+
+	public bool ApplyModOutcome(string kind, string key)
+	{
+		kind = (kind ?? "").Trim();
+		key = (key ?? "").Trim();
+		ModOutcomeDefinition outcome = ModService.GetEnabledOutcomeDefinitions().FirstOrDefault(delegate(ModOutcomeDefinition candidate)
+		{
+			return string.Equals(candidate.Kind, kind, StringComparison.OrdinalIgnoreCase) && string.Equals(candidate.Key, key, StringComparison.OrdinalIgnoreCase);
+		});
+		if (outcome == null)
+		{
+			SessionTraceLogger.Info("mod-outcome", "unknown outcome kind=" + kind + " key=" + key);
+			return false;
+		}
+		if (isSettingEnabled("wearingChastity") && !outcome.AllowedWhileChaste)
+		{
+			SessionTraceLogger.Info("mod-outcome", "skipped restricted outcome while chaste kind=" + kind + " key=" + key);
+			return false;
+		}
+		SessionTraceLogger.Info("mod-outcome", "apply kind=" + kind + " key=" + key + " label=" + outcome.Label);
+		if (outcome.CountsAsEdge)
+		{
+			edgesDone++;
+			setVar("edgesDone", edgesDone.ToString() ?? "");
+		}
+		if (outcome.CountsAsFullOrgasm)
+		{
+			setVar("fullOrgasm", "0");
+		}
+		if (outcome.CountsAsRuinedOrgasm)
+		{
+			setPersistentFlag("ruinedOrgasm");
+		}
+		if (outcome.ResetsDeniedCounter)
+		{
+			setVar("denied", "0");
+		}
+		if (outcome.IncrementsDeniedCounter)
+		{
+			string value = getVar("denied");
+			int currentDenied = int.TryParse(value, out int parsedDenied) ? parsedDenied : 0;
+			setVar("denied", (currentDenied + 1).ToString() ?? "");
+		}
+		if (outcome.ResetsEdgeCounters)
+		{
+			setVar("strokeAmount", "0");
+			strokeAmount = 0;
+			setVar("edgesDone", "0");
+			edgesDone = 0;
+			setVar("totalTimeOnEdge", "0");
+			totalTimeOnEdge = 0;
+		}
+		if (!string.IsNullOrWhiteSpace(outcome.State))
+		{
+			currentState = outcome.State.Trim();
+		}
+		MarkCurrentModHookHandled(kind, key);
+		return true;
 	}
 
 	public void methodRuin()

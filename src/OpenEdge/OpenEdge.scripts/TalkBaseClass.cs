@@ -23,6 +23,8 @@ public class TalkBaseClass
 
 	public string currentState = "";
 
+	protected string ModHookName = "";
+
 	private Random random = new Random();
 
 	public bool talkLocked;
@@ -84,6 +86,11 @@ public class TalkBaseClass
 		}
 		if (homeTalk != null)
 		{
+			if (!string.IsNullOrWhiteSpace(ModHookName))
+			{
+				mw.CompleteModHook(ModHookName);
+				ModHookName = "";
+			}
 			homeTalk.talkLocked = false;
 			mw.currentScript = homeTalk;
 			if (currentState != "")
@@ -613,6 +620,43 @@ public class TalkBaseClass
 		string text;
 		string text2;
 		string text3;
+		if (methodName != null && methodName.StartsWith("OUTCOME:", StringComparison.OrdinalIgnoreCase))
+		{
+			string outcomeText = methodName.Replace("OUTCOME:", "").Trim();
+			string[] outcomeParts = outcomeText.Split(new char[1] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+			if (outcomeParts.Length >= 2)
+			{
+				mw.ApplyModOutcome(outcomeParts[0], outcomeParts[1]);
+			}
+			else
+			{
+				SessionTraceLogger.Info("mod-outcome", "invalid outcome command=" + methodName);
+			}
+			return "";
+		}
+		if (methodName != null && methodName.StartsWith("RUNHOOK:", StringComparison.OrdinalIgnoreCase))
+		{
+			string hookText = methodName.Replace("RUNHOOK:", "").Trim();
+			string[] hookParts = hookText.Split(new char[1] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+			string hookName = hookParts.Length > 0 ? hookParts[0].Trim() : "";
+			string fallbackScript = hookParts.Length > 1 ? hookParts[1].Trim() : "";
+			if (!string.IsNullOrWhiteSpace(hookName) && !mw.RunModHookFromScript(hookName) && !string.IsNullOrWhiteSpace(fallbackScript))
+			{
+				SessionTraceLogger.Info("mod-hooks", "hook=" + hookName + " fallbackScript=" + fallbackScript);
+				mw.currentScript = new GenericScript(mw, mw.currentScript, fallbackScript);
+			}
+			return "";
+		}
+		if (methodName != null && methodName.StartsWith("RUNSCRIPT:", StringComparison.OrdinalIgnoreCase))
+		{
+			string scriptName = methodName.Replace("RUNSCRIPT:", "").Trim();
+			if (!string.IsNullOrWhiteSpace(scriptName))
+			{
+				SessionTraceLogger.Info("script-command", GetType().Name + " runscript=" + scriptName);
+				mw.currentScript = new GenericScript(mw, mw.currentScript, scriptName);
+			}
+			return "";
+		}
 		switch (methodName)
 		{
 		default:

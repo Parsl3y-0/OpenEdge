@@ -22,43 +22,51 @@ public static class ModService
 	public static IReadOnlyList<LoadedMod> LoadAllMods()
 	{
 		EnsureModsDirectory();
+		Dictionary<string, int> priorities = LoadModPriorities();
 		List<LoadedMod> loadedMods = new List<LoadedMod>();
 		foreach (string modDirectory in Directory.GetDirectories(RuntimePaths.ModsDir).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
 		{
-			LoadedMod loadedMod = TryLoadMod(modDirectory, out _);
+			LoadedMod loadedMod = TryLoadMod(modDirectory, priorities, out _);
 			if (loadedMod != null)
 			{
 				loadedMods.Add(loadedMod);
 			}
 		}
-		return loadedMods;
+		return SortModsByPriority(loadedMods).ToList();
 	}
 
 	public static IReadOnlyList<ModSummary> GetModSummaries()
 	{
 		EnsureModsDirectory();
+		Dictionary<string, int> priorities = LoadModPriorities();
 		List<ModSummary> summaries = new List<ModSummary>();
 		List<LoadedMod> loadedMods = new List<LoadedMod>();
 		foreach (string modDirectory in Directory.GetDirectories(RuntimePaths.ModsDir).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
 		{
-			LoadedMod loadedMod = TryLoadMod(modDirectory, out string error);
+			LoadedMod loadedMod = TryLoadMod(modDirectory, priorities, out string error);
 			if (loadedMod == null)
 			{
 				summaries.Add(CreateErrorSummary(modDirectory, error));
 				continue;
 			}
 			loadedMods.Add(loadedMod);
+		}
+		foreach (LoadedMod loadedMod in SortModsByPriority(loadedMods))
+		{
 			summaries.Add(new ModSummary
 			{
-				RootPath = modDirectory,
+				RootPath = loadedMod.RootPath,
 				Id = loadedMod.Manifest.Id,
 				Name = loadedMod.Manifest.Name,
 				Author = loadedMod.Manifest.Author,
 				Version = loadedMod.Manifest.Version,
 				Enabled = loadedMod.Manifest.Enabled,
+				Priority = loadedMod.Priority,
 				SettingCount = loadedMod.Settings.Count,
 				TagCount = loadedMod.Tags.Count,
 				ContextCount = loadedMod.Contexts.Count,
+				HookCount = loadedMod.Hooks.Count,
+				OutcomeCount = loadedMod.Outcomes.Count,
 				HasLines = IsUsableLineRoot(loadedMod.LinesRootPath),
 				Error = ValidateLoadedMod(loadedMod)
 			});
@@ -87,6 +95,16 @@ public static class ModService
 		return LoadEnabledMods().SelectMany((LoadedMod mod) => mod.Contexts).ToList();
 	}
 
+	public static IReadOnlyList<ModHookDefinition> GetEnabledHookDefinitions()
+	{
+		return LoadEnabledMods().SelectMany((LoadedMod mod) => mod.Hooks).ToList();
+	}
+
+	public static IReadOnlyList<ModOutcomeDefinition> GetEnabledOutcomeDefinitions()
+	{
+		return LoadEnabledMods().SelectMany((LoadedMod mod) => mod.Outcomes).ToList();
+	}
+
 	public static void EnsureModsDirectory()
 	{
 		Directory.CreateDirectory(RuntimePaths.ModsDir);
@@ -108,6 +126,40 @@ public static class ModService
 		SaveManifest(modRootPath, manifest);
 	}
 
+	public static void MoveModPriority(string modId, int direction)
+	{
+		if (string.IsNullOrWhiteSpace(modId) || direction == 0)
+		{
+			return;
+		}
+		EnsureModsDirectory();
+		Dictionary<string, int> priorities = LoadModPriorities();
+		List<LoadedMod> mods = new List<LoadedMod>();
+		foreach (string modDirectory in Directory.GetDirectories(RuntimePaths.ModsDir).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
+		{
+			LoadedMod loadedMod = TryLoadMod(modDirectory, priorities, out _);
+			if (loadedMod != null)
+			{
+				mods.Add(loadedMod);
+			}
+		}
+		mods = SortModsByPriority(mods).ToList();
+		int index = mods.FindIndex((LoadedMod mod) => string.Equals(mod.Manifest.Id, modId, StringComparison.OrdinalIgnoreCase));
+		if (index < 0)
+		{
+			return;
+		}
+		int newIndex = Math.Max(0, Math.Min(mods.Count - 1, index + direction));
+		if (newIndex == index)
+		{
+			return;
+		}
+		LoadedMod moving = mods[index];
+		mods.RemoveAt(index);
+		mods.Insert(newIndex, moving);
+		SaveModPriorities(mods);
+	}
+
 	public static string CreateExampleMod()
 	{
 		EnsureModsDirectory();
@@ -115,6 +167,8 @@ public static class ModService
 		Directory.CreateDirectory(Path.Combine(modRoot, "settings"));
 		Directory.CreateDirectory(Path.Combine(modRoot, "tags"));
 		Directory.CreateDirectory(Path.Combine(modRoot, "contexts"));
+		Directory.CreateDirectory(Path.Combine(modRoot, "hooks"));
+		Directory.CreateDirectory(Path.Combine(modRoot, "outcomes"));
 		Directory.CreateDirectory(Path.Combine(modRoot, "lines", "Scripts", "Extend"));
 		Directory.CreateDirectory(Path.Combine(modRoot, "lines", "Vocab", "Extend"));
 		SaveManifest(modRoot, new ModManifest
@@ -128,12 +182,14 @@ public static class ModService
 		WriteIfMissing(Path.Combine(modRoot, "settings", "settings.json"), "{\r\n  \"settings\": [\r\n    {\r\n      \"key\": \"latex\",\r\n      \"label\": \"Latex\",\r\n      \"kind\": \"Toggle\",\r\n      \"legacyEnabledFlag\": \"latex\",\r\n      \"legacyDisabledFlag\": \"latexNo\",\r\n      \"queueableAsk\": true,\r\n      \"mediaDiscoveryTags\": [\"Latex\"],\r\n      \"mediaDiscoveryMinimum\": 2\r\n    }\r\n  ]\r\n}\r\n");
 		WriteIfMissing(Path.Combine(modRoot, "tags", "tags.json"), "{\r\n  \"tags\": [\r\n    {\r\n      \"key\": \"latex\",\r\n      \"label\": \"Latex\",\r\n      \"group\": \"Fetishes\"\r\n    }\r\n  ]\r\n}\r\n");
 		WriteIfMissing(Path.Combine(modRoot, "contexts", "contexts.json"), "{\r\n  \"contexts\": [\r\n    {\r\n      \"key\": \"latexBondage\",\r\n      \"label\": \"Latex Bondage\",\r\n      \"settings\": [\"latex\"],\r\n      \"mediaTags\": [\"Latex\", \"Bondage\"],\r\n      \"minimumMedia\": 2\r\n    }\r\n  ]\r\n}\r\n");
+		WriteIfMissing(Path.Combine(modRoot, "hooks", "hooks.json"), "{\r\n  \"hooks\": [\r\n    {\r\n      \"hook\": \"methodPicker\",\r\n      \"script\": \"example\",\r\n      \"mode\": \"additive\",\r\n      \"weight\": 1,\r\n      \"requiresSettings\": [\"latex\"]\r\n    }\r\n  ]\r\n}\r\n");
+		WriteIfMissing(Path.Combine(modRoot, "outcomes", "outcomes.json"), "{\r\n  \"outcomes\": [\r\n    {\r\n      \"key\": \"exampleOutcome\",\r\n      \"kind\": \"state\",\r\n      \"label\": \"Example Outcome\",\r\n      \"state\": \"module\"\r\n    }\r\n  ]\r\n}\r\n");
 		WriteIfMissing(Path.Combine(modRoot, "lines", "Vocab", "Extend", "tags.txt"), "Latex\r\n");
 		WriteIfMissing(Path.Combine(modRoot, "lines", "Scripts", "Extend", "example.txt"), "This is an example mod line.\r\n");
 		return modRoot;
 	}
 
-	private static LoadedMod TryLoadMod(string modDirectory, out string error)
+	private static LoadedMod TryLoadMod(string modDirectory, Dictionary<string, int> priorities, out string error)
 	{
 		error = "";
 		try
@@ -151,9 +207,12 @@ public static class ModService
 			{
 				RootPath = modDirectory,
 				Manifest = manifest,
+				Priority = GetPriority(manifest.Id, priorities),
 				Settings = LoadSettings(modDirectory, manifest),
 				Tags = LoadTags(modDirectory),
 				Contexts = LoadContexts(modDirectory),
+				Hooks = LoadHooks(modDirectory, manifest),
+				Outcomes = LoadOutcomes(modDirectory, manifest),
 				LinesRootPath = Path.Combine(modDirectory, "lines")
 			};
 		}
@@ -245,6 +304,46 @@ public static class ModService
 		return contextsFile.Contexts.Where((DerivedContextDefinition context) => !string.IsNullOrWhiteSpace(context.Key)).ToList();
 	}
 
+	private static List<ModHookDefinition> LoadHooks(string modDirectory, ModManifest manifest)
+	{
+		string hooksPath = Path.Combine(modDirectory, "hooks", "hooks.json");
+		if (!File.Exists(hooksPath))
+		{
+			return new List<ModHookDefinition>();
+		}
+		ModHooksFile hooksFile = ReadJsonFile<ModHooksFile>(hooksPath);
+		if (hooksFile?.Hooks == null)
+		{
+			return new List<ModHookDefinition>();
+		}
+		List<ModHookDefinition> hooks = hooksFile.Hooks.Where((ModHookDefinition hook) => !string.IsNullOrWhiteSpace(hook.Hook) && !string.IsNullOrWhiteSpace(hook.Script)).ToList();
+		foreach (ModHookDefinition hook in hooks)
+		{
+			hook.SourceModId = manifest.Id;
+		}
+		return hooks;
+	}
+
+	private static List<ModOutcomeDefinition> LoadOutcomes(string modDirectory, ModManifest manifest)
+	{
+		string outcomesPath = Path.Combine(modDirectory, "outcomes", "outcomes.json");
+		if (!File.Exists(outcomesPath))
+		{
+			return new List<ModOutcomeDefinition>();
+		}
+		ModOutcomesFile outcomesFile = ReadJsonFile<ModOutcomesFile>(outcomesPath);
+		if (outcomesFile?.Outcomes == null)
+		{
+			return new List<ModOutcomeDefinition>();
+		}
+		List<ModOutcomeDefinition> outcomes = outcomesFile.Outcomes.Where((ModOutcomeDefinition outcome) => !string.IsNullOrWhiteSpace(outcome.Key) && !string.IsNullOrWhiteSpace(outcome.Kind)).ToList();
+		foreach (ModOutcomeDefinition outcome in outcomes)
+		{
+			outcome.SourceModId = manifest.Id;
+		}
+		return outcomes;
+	}
+
 	private static SettingKind ParseSettingKind(string kind)
 	{
 		if (Enum.TryParse(kind, ignoreCase: true, out SettingKind parsed))
@@ -257,6 +356,56 @@ public static class ModService
 	private static string CleanKey(string value)
 	{
 		return (value ?? "").Trim();
+	}
+
+	private static Dictionary<string, int> LoadModPriorities()
+	{
+		Dictionary<string, int> priorities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+		if (!File.Exists(RuntimePaths.ModLoadOrderFile))
+		{
+			return priorities;
+		}
+		ModLoadOrderFile orderFile = ReadJsonFile<ModLoadOrderFile>(RuntimePaths.ModLoadOrderFile);
+		if (orderFile?.Mods == null)
+		{
+			return priorities;
+		}
+		foreach (ModPriorityEntry entry in orderFile.Mods)
+		{
+			if (!string.IsNullOrWhiteSpace(entry.Id))
+			{
+				priorities[entry.Id.Trim()] = entry.Priority;
+			}
+		}
+		return priorities;
+	}
+
+	private static int GetPriority(string modId, Dictionary<string, int> priorities)
+	{
+		if (!string.IsNullOrWhiteSpace(modId) && priorities.TryGetValue(modId.Trim(), out int priority))
+		{
+			return priority;
+		}
+		return 0;
+	}
+
+	private static void SaveModPriorities(IReadOnlyList<LoadedMod> mods)
+	{
+		ModLoadOrderFile orderFile = new ModLoadOrderFile();
+		for (int i = 0; i < mods.Count; i++)
+		{
+			orderFile.Mods.Add(new ModPriorityEntry
+			{
+				Id = mods[i].Manifest.Id,
+				Priority = (mods.Count - i) * 10
+			});
+		}
+		File.WriteAllText(RuntimePaths.ModLoadOrderFile, JsonSerializer.Serialize(orderFile, JsonOptions));
+	}
+
+	private static IEnumerable<LoadedMod> SortModsByPriority(IEnumerable<LoadedMod> mods)
+	{
+		return mods.OrderByDescending((LoadedMod mod) => mod.Priority).ThenBy((LoadedMod mod) => mod.Manifest.Id, StringComparer.OrdinalIgnoreCase).ThenBy((LoadedMod mod) => mod.RootPath, StringComparer.OrdinalIgnoreCase);
 	}
 
 	private static void SaveManifest(string modDirectory, ModManifest manifest)
@@ -304,7 +453,24 @@ public static class ModService
 		{
 			warnings.Add("duplicate context keys");
 		}
+		if (mod.Hooks.GroupBy((ModHookDefinition hook) => hook.Hook + ":" + hook.Script, StringComparer.OrdinalIgnoreCase).Any((IGrouping<string, ModHookDefinition> group) => group.Count() > 1))
+		{
+			warnings.Add("duplicate hook registrations");
+		}
+		if (mod.Hooks.Any((ModHookDefinition hook) => !IsKnownHookMode(hook.Mode)))
+		{
+			warnings.Add("unknown hook mode");
+		}
+		if (mod.Outcomes.GroupBy((ModOutcomeDefinition outcome) => outcome.Kind + ":" + outcome.Key, StringComparer.OrdinalIgnoreCase).Any((IGrouping<string, ModOutcomeDefinition> group) => group.Count() > 1))
+		{
+			warnings.Add("duplicate outcome keys");
+		}
 		return string.Join("; ", warnings);
+	}
+
+	private static bool IsKnownHookMode(string mode)
+	{
+		return string.IsNullOrWhiteSpace(mode) || string.Equals(mode, "additive", StringComparison.OrdinalIgnoreCase) || string.Equals(mode, "exclusive", StringComparison.OrdinalIgnoreCase) || string.Equals(mode, "fallback", StringComparison.OrdinalIgnoreCase) || string.Equals(mode, "replace", StringComparison.OrdinalIgnoreCase);
 	}
 
 	private static T ReadJsonFile<T>(string path)
@@ -333,6 +499,7 @@ public static class ModService
 		AppendDuplicateWarnings(summaries, enabledMods.SelectMany((LoadedMod mod) => mod.Settings.Select((SettingDefinition setting) => new KeyValuePair<string, string>(setting.Key, mod.RootPath))), "setting");
 		AppendDuplicateWarnings(summaries, enabledMods.SelectMany((LoadedMod mod) => mod.Tags.Select((ModTagDefinition tag) => new KeyValuePair<string, string>(string.IsNullOrWhiteSpace(tag.Key) ? tag.Label : tag.Key, mod.RootPath))), "tag");
 		AppendDuplicateWarnings(summaries, enabledMods.SelectMany((LoadedMod mod) => mod.Contexts.Select((DerivedContextDefinition context) => new KeyValuePair<string, string>(context.Key, mod.RootPath))), "context");
+		AppendDuplicateWarnings(summaries, enabledMods.SelectMany((LoadedMod mod) => mod.Outcomes.Select((ModOutcomeDefinition outcome) => new KeyValuePair<string, string>(outcome.Kind + ":" + outcome.Key, mod.RootPath))), "outcome");
 	}
 
 	private static void AppendDuplicateWarnings(List<ModSummary> summaries, IEnumerable<KeyValuePair<string, string>> keys, string kind)

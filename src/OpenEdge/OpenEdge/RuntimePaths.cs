@@ -25,6 +25,8 @@ public static class RuntimePaths
 
 	public static string ModsDir => Path.Combine(RuntimeRoot, "mods");
 
+	public static string ModLoadOrderFile => Path.Combine(RuntimeRoot, "mod-load-order.json");
+
 	public static string ContextsDir => Path.Combine(RuntimeRoot, "contexts");
 
 	public static string ContextsFile => Path.Combine(ContextsDir, "contexts.json");

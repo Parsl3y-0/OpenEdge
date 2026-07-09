@@ -1,6 +1,6 @@
 # OpenEdge Mod Contributing Guide
 
-OpenEdge mods live in the runtime `mods` folder and can add simple settings, media tags, line/script content, and vocabulary without changing app code.
+OpenEdge mods live in the runtime `mods` folder and can add simple settings, media tags, derived contexts, line/script content, and vocabulary without changing app code.
 
 Runtime location:
 
@@ -17,6 +17,8 @@ mods/example-mod/
     settings.json
   tags/
     tags.json
+  contexts/
+    contexts.json
   lines/
     Scripts/
       Extend/
@@ -155,7 +157,7 @@ Example:
 }
 ```
 
-Tags automatically appear in the tagger and bulk tagger. Tag groups stay in group order, and tags inside each group sort alphabetically.
+Tags automatically appear in the tagger and Bulk Operations. Tag groups stay in group order, and tags inside each group sort alphabetically.
 
 ### Tag design rules
 
@@ -654,12 +656,13 @@ You seem ready for a stronger version of this theme.
 
 ### Media tag predicates
 
-Media tags represent what is visible in tagged images/videos. They are edited in the tagger and stored in:
+Media tags represent what is visible in tagged images/videos. They are edited in the tagger and stored canonically in:
 
 ```txt
 runtime/local/app/media-tag-index.json
-runtime/local/app/tags.txt
 ```
+
+`runtime/local/app/tags.txt` is optional legacy input only. OpenEdge reads it for compatibility when present, but does not create or write it.
 
 Scripts can check whether enough matching media exists:
 
@@ -874,6 +877,106 @@ Contexts do not appear as tag buttons. They are virtual meanings used by scripts
 
 This keeps tagging lightweight while still allowing expressive scripts.
 
+## Mod hooks and scripted outcomes
+
+OpenEdge also supports early hook/outcome metadata for more advanced mods. Full design notes live in `docs/modding/hook-framework.md`.
+
+Hook registrations live at:
+
+```txt
+mods/mod-id/hooks/hooks.json
+```
+
+Outcome definitions live at:
+
+```txt
+mods/mod-id/outcomes/outcomes.json
+```
+
+Implemented official hook entrypoints:
+
+```txt
+sessionIntro
+methodPicker
+changeState
+sessionEnd
+edgeOpportunity
+orgasmDecision
+```
+
+Mods can also emit custom hook names from scripts with `RUNHOOK:`. Hook names are string-based, so another mod can register a handler for a hook emitted by your mod.
+
+Example hook file:
+
+```json
+{
+  "hooks": [
+    {
+      "hook": "methodPicker",
+      "script": "customModule",
+      "mode": "exclusive",
+      "weight": 1,
+      "requiresSettings": ["customMode"]
+    }
+  ]
+}
+```
+
+Currently useful modes:
+
+- `exclusive`: eligible handler runs before base behavior for official hooks.
+- `replace`: treated like `exclusive` for currently implemented hooks.
+- `additive`: joins the weighted base pool for `methodPicker`; for script-emitted hooks it can be selected by the generic hook resolver.
+- `fallback`: metadata is accepted, but richer fallback behavior is still planned.
+
+Advanced script commands:
+
+```txt
+RUNSCRIPT:scriptName
+RUNHOOK:hookName[,fallbackScript]
+OUTCOME:kind,key
+```
+
+`RUNSCRIPT:` runs a named script from base or enabled mod line roots without requiring a new app-code script class.
+
+`RUNHOOK:` emits a hook that enabled mods can handle. You can optionally provide a fallback script to run when no eligible hook handler is selected. Example:
+
+```txt
+RUNHOOK:myMod.beforeCustomFlow
+RUNHOOK:myMod.customFlowBody,defaultCustomFlowBody
+RUNHOOK:myMod.afterCustomFlow
+```
+
+`OUTCOME:` applies a declared outcome and marks the active hook as handled.
+
+Example outcome file:
+
+```json
+{
+  "outcomes": [
+    {
+      "key": "customEdge",
+      "kind": "edge",
+      "label": "Custom Edge",
+      "countsAsEdge": true,
+      "usesNormalStroking": false,
+      "allowedWhileChaste": true,
+      "state": "module"
+    }
+  ]
+}
+```
+
+Example script line:
+
+```txt
+OUTCOME:edge,customEdge
+```
+
+Outcome effects are conservative and explicit. If an outcome is not marked `allowedWhileChaste`, it will be skipped while `wearingChastity` is enabled.
+
+This system is still being expanded. For now, prefer small test mods and check `runtime/local/app/debug/session-trace.log` for `mod-hooks` and `mod-outcome` entries when debugging.
+
 ## Practical mod design checklist
 
 Before adding a tag, ask:
@@ -905,7 +1008,7 @@ If yes, a simple mod setting is probably appropriate.
 6. Restart OpenEdge after enabling/disabling mods so startup-loaded settings refresh everywhere.
 7. Check:
    - Settings menu for new settings.
-   - Tagger/Bulk Tagger for new tags.
+   - Tagger/Bulk Operations for new tags.
    - Script behavior for new lines/vocab.
 
 ## Current limitations
@@ -914,5 +1017,6 @@ If yes, a simple mod setting is probably appropriate.
 - Dynamic simple settings are supported; complex structured settings still require app code.
 - Dynamic tags are supported.
 - Mod line roots are supported.
-- Rich derived context JSON is a planned design direction and may require additional app support before scripts can use it directly.
+- Derived context JSON is supported for `ISCONTEXT:` and `SETCONTEXTMEDIA:` script predicates.
+- First-class hooks/outcomes are partially implemented; `sessionIntro`, `methodPicker`, `changeState`, `sessionEnd`, `edgeOpportunity`, `orgasmDecision`, `RUNSCRIPT:`, `RUNHOOK:`, and `OUTCOME:` are available. Additive/base pooling currently applies to `methodPicker`; richer pooling and fallback behavior are still planned.
 - Invalid JSON reporting is still first-pass; keep files valid and simple.

@@ -149,7 +149,7 @@ public partial class ModsPopup : Grid, IComponentConnector
 		{
 			details += " · Author: " + summary.Author;
 		}
-		details += " · Settings: " + summary.SettingCount + " · Tags: " + summary.TagCount + " · Contexts: " + summary.ContextCount + " · Lines: " + (summary.HasLines ? "yes" : "no");
+		details += " · Priority: " + summary.Priority + " · Settings: " + summary.SettingCount + " · Tags: " + summary.TagCount + " · Contexts: " + summary.ContextCount + " · Hooks: " + summary.HookCount + " · Outcomes: " + summary.OutcomeCount + " · Lines: " + (summary.HasLines ? "yes" : "no");
 		textPanel.Children.Add(new TextBlock
 		{
 			Text = details,
@@ -176,6 +176,26 @@ public partial class ModsPopup : Grid, IComponentConnector
 			Orientation = Orientation.Horizontal,
 			VerticalAlignment = VerticalAlignment.Center
 		};
+		Button upButton = new Button
+		{
+			Content = "↑",
+			ToolTip = "Move this mod earlier in priority order",
+			Padding = new Thickness(10.0, 6.0, 10.0, 6.0),
+			Margin = new Thickness(0.0, 0.0, 6.0, 0.0),
+			Tag = summary.Id
+		};
+		upButton.Click += MoveModUp_Click;
+		actions.Children.Add(upButton);
+		Button downButton = new Button
+		{
+			Content = "↓",
+			ToolTip = "Move this mod later in priority order",
+			Padding = new Thickness(10.0, 6.0, 10.0, 6.0),
+			Margin = new Thickness(0.0, 0.0, 12.0, 0.0),
+			Tag = summary.Id
+		};
+		downButton.Click += MoveModDown_Click;
+		actions.Children.Add(downButton);
 		CheckBox enabledBox = new CheckBox
 		{
 			Content = "Enabled",
@@ -201,6 +221,37 @@ public partial class ModsPopup : Grid, IComponentConnector
 
 		border.Child = grid;
 		return border;
+	}
+
+	private void MoveModUp_Click(object sender, RoutedEventArgs e)
+	{
+		MoveModPriority(sender, -1);
+	}
+
+	private void MoveModDown_Click(object sender, RoutedEventArgs e)
+	{
+		MoveModPriority(sender, 1);
+	}
+
+	private void MoveModPriority(object sender, int direction)
+	{
+		if (!(sender is Button button) || !(button.Tag is string modId))
+		{
+			return;
+		}
+		try
+		{
+			p1.playClickSound();
+			ModService.MoveModPriority(modId, direction);
+			restartRequired = true;
+			RefreshModList();
+			UpdateStatus("Updated mod priority order.");
+		}
+		catch (Exception ex)
+		{
+			MessageBox.Show(ex.Message, "Unable to update mod priority", MessageBoxButton.OK, MessageBoxImage.Error);
+			RefreshModList();
+		}
 	}
 
 	private void EnabledBox_Changed(object sender, RoutedEventArgs e)
