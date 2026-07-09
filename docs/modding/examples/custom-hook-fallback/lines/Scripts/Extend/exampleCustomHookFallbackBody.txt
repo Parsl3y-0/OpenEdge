@@ -1,2 +1,0 @@
-This is the fallback body for example.customFlowBody.
-HOOKHANDLED:fallback

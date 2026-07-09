@@ -1,2 +1,0 @@
-This restricted edge outcome should only run when chastity restrictions allow it.
-OUTCOME:edge,restrictedEdge

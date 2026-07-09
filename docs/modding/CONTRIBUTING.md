@@ -1005,13 +1005,7 @@ If yes, a simple mod setting is probably appropriate.
 
 ## Example fixtures
 
-Disabled-by-default framework examples live under:
-
-```txt
-docs/modding/examples/
-```
-
-Copy an example folder into `runtime/local/app/mods/`, enable it in the Mods manager, then Reload App/restart to test hook/outcome behavior. See `docs/modding/examples/README.md` for the fixture list.
+Framework fixture mods are not shipped in the main source tree or release zip. Keep local test fixtures under `runtime/local/app/mods/` while developing. If reusable examples are needed, publish them separately as a modding tools/example pack.
 
 ## Testing a mod
 

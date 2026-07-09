@@ -1,2 +1,0 @@
-This is conflict fixture A. If both conflict mods are enabled, priority decides which sessionEnd hook wins.
-HOOKHANDLED:

@@ -1,1 +1,0 @@
-This script exists, but its hook mode is intentionally invalid for warning tests.
