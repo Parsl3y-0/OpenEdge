@@ -580,10 +580,23 @@ public partial class MainWindow : Page, IComponentConnector
 		SessionTraceLogger.Info("dev-tools", "trigger=methodPicker");
 		base.Dispatcher.Invoke(delegate
 		{
+			PauseStrokeForDevTrigger();
 			linked = true;
 			currentState = "module";
 			methodPicker();
 		});
+	}
+
+	private void PauseStrokeForDevTrigger()
+	{
+		if (stroking)
+		{
+			SessionTraceLogger.Info("dev-tools", "paused stroking for manual trigger bpm=" + bpm + " state=" + currentState);
+		}
+		stroking = false;
+		subliminal = false;
+		removeSpecialButtons("I'm on the edge", 1);
+		removeSpecialButtons("I came", 3);
 	}
 
 	public void DevTriggerSessionEnd()
@@ -591,6 +604,7 @@ public partial class MainWindow : Page, IComponentConnector
 		SessionTraceLogger.Info("dev-tools", "trigger=sessionEnd");
 		base.Dispatcher.Invoke(delegate
 		{
+			PauseStrokeForDevTrigger();
 			sessionEndModHookCompleted = false;
 			SelectSessionEndingScript();
 		});
@@ -606,6 +620,7 @@ public partial class MainWindow : Page, IComponentConnector
 		SessionTraceLogger.Info("dev-tools", "trigger=hook hook=" + hookName);
 		base.Dispatcher.Invoke(delegate
 		{
+			PauseStrokeForDevTrigger();
 			RunModHookFromScript(hookName);
 		});
 	}
@@ -620,6 +635,7 @@ public partial class MainWindow : Page, IComponentConnector
 		SessionTraceLogger.Info("dev-tools", "trigger=script script=" + scriptName);
 		base.Dispatcher.Invoke(delegate
 		{
+			PauseStrokeForDevTrigger();
 			GenericScript script = new GenericScript(this, currentScript, scriptName);
 			if (script.allText.Length == 0)
 			{
