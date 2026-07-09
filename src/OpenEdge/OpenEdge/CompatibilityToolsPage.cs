@@ -205,6 +205,10 @@ public partial class CompatibilityToolsPage : Page, IComponentConnector
 		builder.AppendLine("- Primary identity index: `" + Path.Combine(RuntimePaths.RuntimeRoot, "media-tag-index.json") + "` exists=" + File.Exists(Path.Combine(RuntimePaths.RuntimeRoot, "media-tag-index.json")));
 		builder.AppendLine("- Legacy tags input: `" + RuntimePaths.TagsFile + "` exists=" + File.Exists(RuntimePaths.TagsFile) + " lines=" + (File.Exists(RuntimePaths.TagsFile) ? File.ReadAllLines(RuntimePaths.TagsFile).Length : 0));
 		builder.AppendLine();
+		builder.AppendLine("## Mod diagnostics");
+		builder.AppendLine();
+		builder.Append(BuildModDiagnosticsReport());
+		builder.AppendLine();
 		builder.AppendLine("## Script migration diagnostics");
 		builder.AppendLine();
 		builder.AppendLine("Run `powershell -ExecutionPolicy Bypass -File docs/recovery/audit-legacy-state.ps1` from the repository root for exact remaining legacy command locations.");
@@ -234,6 +238,110 @@ public partial class CompatibilityToolsPage : Page, IComponentConnector
 		AddRecentDebugFiles(zipArchive, zipPath);
 	}
 
+	private string BuildModDiagnosticsReport()
+	{
+		StringBuilder builder = new StringBuilder();
+		IReadOnlyList<ModSummary> summaries = ModService.GetModSummaries();
+		IReadOnlyList<LoadedMod> mods = ModService.LoadAllMods();
+		builder.AppendLine("- Mods directory exists: " + Directory.Exists(RuntimePaths.ModsDir));
+		builder.AppendLine("- Mods detected: " + summaries.Count);
+		builder.AppendLine("- Mods enabled: " + summaries.Count((ModSummary summary) => summary.Enabled));
+		builder.AppendLine("- Mod load order file exists: " + File.Exists(RuntimePaths.ModLoadOrderFile));
+		builder.AppendLine();
+		foreach (ModSummary summary in summaries.OrderByDescending((ModSummary item) => item.Priority).ThenBy((ModSummary item) => item.Id, StringComparer.OrdinalIgnoreCase))
+		{
+			builder.AppendLine("### " + (string.IsNullOrWhiteSpace(summary.Name) ? summary.Id : summary.Name));
+			builder.AppendLine();
+			builder.AppendLine("- Id: `" + summary.Id + "`");
+			builder.AppendLine("- Version: " + (string.IsNullOrWhiteSpace(summary.Version) ? "not specified" : summary.Version));
+			builder.AppendLine("- Enabled: " + summary.Enabled);
+			builder.AppendLine("- Priority: " + summary.Priority);
+			builder.AppendLine("- Counts: settings=" + summary.SettingCount + ", tags=" + summary.TagCount + ", contexts=" + summary.ContextCount + ", hooks=" + summary.HookCount + ", overrides=" + summary.OverrideHookCount + ", outcomes=" + summary.OutcomeCount + ", lines=" + summary.HasLines);
+			builder.AppendLine("- Warnings: " + (string.IsNullOrWhiteSpace(summary.Error) ? "none" : summary.Error));
+			LoadedMod mod = mods.FirstOrDefault((LoadedMod item) => string.Equals(item.RootPath, summary.RootPath, StringComparison.OrdinalIgnoreCase));
+			if (mod != null)
+			{
+				AppendHookSummary(builder, mod);
+				AppendOutcomeSummary(builder, mod);
+			}
+			builder.AppendLine();
+		}
+		return builder.ToString();
+	}
+
+	private static void AppendHookSummary(StringBuilder builder, LoadedMod mod)
+	{
+		if (mod.Hooks.Count == 0)
+		{
+			return;
+		}
+		builder.AppendLine("- Hooks:");
+		foreach (ModHookDefinition hook in mod.Hooks.OrderBy((ModHookDefinition item) => item.Hook, StringComparer.OrdinalIgnoreCase).ThenBy((ModHookDefinition item) => item.Script, StringComparer.OrdinalIgnoreCase))
+		{
+			builder.AppendLine("  - hook=`" + SafeDiagnosticValue(hook.Hook) + "`, mode=`" + SafeDiagnosticValue(hook.Mode) + "`, script=`" + SafeDiagnosticValue(hook.Script) + "`, weight=" + hook.Weight + ", allowedWhileChaste=" + hook.AllowedWhileChaste);
+		}
+	}
+
+	private static void AppendOutcomeSummary(StringBuilder builder, LoadedMod mod)
+	{
+		if (mod.Outcomes.Count == 0)
+		{
+			return;
+		}
+		builder.AppendLine("- Outcomes:");
+		foreach (ModOutcomeDefinition outcome in mod.Outcomes.OrderBy((ModOutcomeDefinition item) => item.Kind, StringComparer.OrdinalIgnoreCase).ThenBy((ModOutcomeDefinition item) => item.Key, StringComparer.OrdinalIgnoreCase))
+		{
+			builder.AppendLine("  - kind=`" + SafeDiagnosticValue(outcome.Kind) + "`, key=`" + SafeDiagnosticValue(outcome.Key) + "`, effects=" + BuildOutcomeEffects(outcome));
+		}
+	}
+
+	private static string BuildOutcomeEffects(ModOutcomeDefinition outcome)
+	{
+		List<string> effects = new List<string>();
+		if (outcome.CountsAsEdge)
+		{
+			effects.Add("countsAsEdge");
+		}
+		if (outcome.CountsAsFullOrgasm)
+		{
+			effects.Add("countsAsFullOrgasm");
+		}
+		if (outcome.CountsAsRuinedOrgasm)
+		{
+			effects.Add("countsAsRuinedOrgasm");
+		}
+		if (outcome.ResetsDeniedCounter)
+		{
+			effects.Add("resetsDeniedCounter");
+		}
+		if (outcome.IncrementsDeniedCounter)
+		{
+			effects.Add("incrementsDeniedCounter");
+		}
+		if (outcome.ResetsEdgeCounters)
+		{
+			effects.Add("resetsEdgeCounters");
+		}
+		if (outcome.UsesNormalStroking)
+		{
+			effects.Add("usesNormalStroking");
+		}
+		if (outcome.AllowedWhileChaste)
+		{
+			effects.Add("allowedWhileChaste");
+		}
+		if (!string.IsNullOrWhiteSpace(outcome.State))
+		{
+			effects.Add("state=" + SafeDiagnosticValue(outcome.State));
+		}
+		return effects.Count == 0 ? "none" : string.Join(", ", effects);
+	}
+
+	private static string SafeDiagnosticValue(string value)
+	{
+		return (value ?? "").Replace("`", "'").Trim();
+	}
+
 	private string BuildDiagnosticsManifest()
 	{
 		StringBuilder builder = new StringBuilder();
@@ -242,7 +350,7 @@ public partial class CompatibilityToolsPage : Page, IComponentConnector
 		builder.AppendLine("Runtime root: " + RuntimePaths.RuntimeRoot);
 		builder.AppendLine();
 		builder.AppendLine("Included when present:");
-		builder.AppendLine("- diagnostics/compatibility-diagnostics.md");
+		builder.AppendLine("- diagnostics/compatibility-diagnostics.md, including safe mod/hook/outcome summaries");
 		builder.AppendLine("- debug/session-trace.log plus retained debug/session-trace-*.log archives");
 		builder.AppendLine("- recent debug reports/logs");
 		builder.AppendLine("- media/media-sources.json");
@@ -250,7 +358,7 @@ public partial class CompatibilityToolsPage : Page, IComponentConnector
 		builder.AppendLine("- state/options.txt, tasks.txt, tags.txt, tagGroups.txt, compatibility-state.json");
 		builder.AppendLine("- flags/*.txt and flags/temp/*.txt");
 		builder.AppendLine();
-		builder.AppendLine("Privacy note: media source/index files can contain local folder and file paths. Redact paths before sharing if needed.");
+		builder.AppendLine("Privacy note: media source/index files can contain local folder and file paths. Mod diagnostics include mod ids/names, hook script names, and outcome keys, but not mod script contents. Redact paths or names before sharing if needed.");
 		return builder.ToString();
 	}
 
