@@ -1090,6 +1090,27 @@ public partial class MainWindow : Page, IComponentConnector
 			sessionEndModHookCompleted = true;
 		}
 		SessionTraceLogger.Info("mod-hooks", "complete hook=" + context.HookName + " mod=" + context.SourceModId + " script=" + context.Script + " handled=" + context.Handled);
+		if (context.Handled && string.Equals(context.HookName, "sessionEnd", StringComparison.OrdinalIgnoreCase))
+		{
+			CompleteSessionEndFromModHook(context.SourceModId);
+		}
+	}
+
+	private void CompleteSessionEndFromModHook(string modId)
+	{
+		SessionTraceLogger.Info("session", "session end completed by mod hook mod=" + modId);
+		if (!getTFlag("closeWithoutSession"))
+		{
+			foreach (string file in Directory.GetFiles(RuntimePaths.TempFlagsDir))
+			{
+				File.Delete(file);
+			}
+			currentScript.setFlag("sessionEnd");
+			currentScript.incrementFlag("sessions");
+			setVar("sessionLength", "0");
+		}
+		sessionActive = false;
+		endSession();
 	}
 
 	public void MarkCurrentModHookHandled(string reason = "explicit")

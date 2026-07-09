@@ -90,6 +90,10 @@ public class TalkBaseClass
 			{
 				mw.CompleteModHook(ModHookName);
 				ModHookName = "";
+				if (!mw.sessionActive)
+				{
+					return "";
+				}
 			}
 			homeTalk.talkLocked = false;
 			mw.currentScript = homeTalk;
