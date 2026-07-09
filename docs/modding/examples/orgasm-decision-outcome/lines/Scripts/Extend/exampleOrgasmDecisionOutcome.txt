@@ -1,0 +1,2 @@
+This is a custom orgasm decision outcome. It denies release because outcomes.json says so.
+OUTCOME:denial,exampleDenial

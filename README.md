@@ -76,7 +76,7 @@ Important runtime files include:
 When upgrading manually, preserve `runtime/local/` or export user data first from:
 
 ```text
-Settings -> Migration Tools -> Export User Data
+Settings -> Migration & Diagnostics -> Export User Data
 ```
 
 ## EverEdge migration
@@ -84,7 +84,7 @@ Settings -> Migration Tools -> Export User Data
 Older EverEdge installs stored user data in text files under `Data/` and flags under `Data/flags/`. OpenEdge includes a migration action at:
 
 ```text
-Settings -> Migration Tools -> Import Data from EverEdge
+Settings -> Migration & Diagnostics -> Import Data from EverEdge
 ```
 
 You can select either the EverEdge install folder or the EverEdge `Data` folder. The importer copies supported settings/tasks/flags into the current runtime layout and imports legacy media tags into the canonical `media-tag-index.json` store instead of recreating `tags.txt`.
@@ -109,7 +109,7 @@ Additional folders can be added without copying media into the app directory. Ta
 For support/debugging, use:
 
 ```text
-Settings -> Migration Tools -> Export Diagnostics
+Settings -> Migration & Diagnostics -> Export Diagnostics
 ```
 
 This creates a diagnostics bundle under `runtime/local/app/debug/`. It may include local file paths and other private runtime state, so review or redact it before sharing.

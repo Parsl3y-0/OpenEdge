@@ -28,7 +28,7 @@ This writes `docs/recovery/openedge-diagnostics.md` with compatibility state cou
 
 ## In-app diagnostics
 
-Open `Settings -> Migration Tools -> Export Diagnostics` to export a runtime diagnostics bundle under `runtime/local/app/debug/`. The bundle includes the current `session-trace.log`, retained `session-trace-*.log` archives, recent debug reports/logs, compatibility state, media source/tag files, and flags.
+Open `Settings -> Migration & Diagnostics -> Export Diagnostics` to export a runtime diagnostics bundle under `runtime/local/app/debug/`. The bundle includes the current `session-trace.log`, retained `session-trace-*.log` archives, recent debug reports/logs, compatibility state, media source/tag files, and flags.
 
 ## Media tag recovery notes
 

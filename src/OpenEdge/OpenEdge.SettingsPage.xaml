@@ -197,7 +197,7 @@
               Height="38"
               Margin="8"
               Click="MediaSources_Click" />
-      <Button Content="Migration Tools"
+      <Button Content="Migration &amp; Diagnostics"
               Width="190"
               Height="38"
               Margin="8"

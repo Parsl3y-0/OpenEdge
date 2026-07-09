@@ -17,6 +17,8 @@ To test one:
 - `exclusive-sessionintro` — replaces the base `sessionIntro` hook.
 - `custom-hook-fallback` — demonstrates `RUNHOOK:hookName,fallbackScript`.
 - `custom-outcome-edge` — demonstrates `OUTCOME:edge,exampleEdge` with declared outcome metadata.
+- `orgasm-decision-outcome` — demonstrates an `orgasmDecision` hook applying `OUTCOME:denial,exampleDenial`.
+- `chastity-restricted-outcome` — demonstrates `allowedWhileChaste: false` hook/outcome restrictions.
 - `invalid-warning` — intentionally contains invalid hook/outcome metadata for Mods manager warning tests.
 - `exclusive-conflict-a` and `exclusive-conflict-b` — enable both to test exclusive/replace conflict warnings and priority ordering.
 

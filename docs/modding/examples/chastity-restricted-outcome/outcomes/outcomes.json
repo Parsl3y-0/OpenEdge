@@ -1,0 +1,13 @@
+{
+  "outcomes": [
+    {
+      "key": "restrictedEdge",
+      "kind": "edge",
+      "label": "Chastity Restricted Edge",
+      "countsAsEdge": true,
+      "usesNormalStroking": false,
+      "allowedWhileChaste": false,
+      "state": "module"
+    }
+  ]
+}
