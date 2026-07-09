@@ -937,10 +937,7 @@ public partial class MainWindow : Page, IComponentConnector
 			}
 			BeginModHook(hookName, selected);
 			currentScript = script;
-			if (string.Equals(hookName, "methodPicker", StringComparison.OrdinalIgnoreCase))
-			{
-				currentState = "module";
-			}
+			currentState = "module";
 			return true;
 		}
 		return false;
