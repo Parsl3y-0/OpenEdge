@@ -1,20 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
-<UserControl x:Class="OpenEdge.BluetoothDeviceTester" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:local="clr-namespace:OpenEdge" Background="#00FFFFFF">
-  <Grid Height="92">
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition />
-      <ColumnDefinition />
-      <ColumnDefinition />
-      <ColumnDefinition />
-    </Grid.ColumnDefinitions>
-    <TextBlock Name="deviceName" Grid.ColumnSpan="2" HorizontalAlignment="Left" Margin="20,0,20,0" Text="The handy" TextAlignment="Center" VerticalAlignment="Center" FontSize="32" Foreground="#FFFFFFFF" FontFamily="Times New Roman" TextDecorations="Underline" />
-    <StackPanel Grid.ColumnSpan="3" HorizontalAlignment="Right" Orientation="Horizontal" Margin="14">
-      <TextBlock Text="Used As:" TextAlignment="Center" VerticalAlignment="Center" FontSize="26" Foreground="#FFFFFFFF" FontFamily="Times New Roman" Margin="0" />
-      <TextBlock Name="selectedType" Text="Not Set" TextAlignment="Center" VerticalAlignment="Center" FontSize="26" Foreground="#FFFFFFFF" FontFamily="Times New Roman" Margin="10,0,20,0" />
-      <Image Name="plugImage" Source="/plug.png" Stretch="UniformToFill" Margin="5" PreviewMouseLeftButtonUp="plugImage_PreviewMouseLeftButtonUp" />
-      <Image Name="wandImage" Source="/wand.png" Stretch="UniformToFill" Margin="5" PreviewMouseLeftButtonUp="wandImage_PreviewMouseLeftButtonUp" />
-      <Image Name="onaImage" Source="/ona.png" Stretch="UniformToFill" Margin="5" PreviewMouseLeftButtonUp="onaImage_PreviewMouseLeftButtonUp" />
-    </StackPanel>
-    <Button Grid.Column="3" FontSize="28" Content="Test" HorizontalAlignment="Right" VerticalAlignment="Center" FontFamily="Times New Roman" Margin="20" Click="Button_Click" />
-  </Grid>
+<UserControl x:Class="OpenEdge.BluetoothDeviceTester"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:OpenEdge"
+             Background="Transparent">
+  <Border Margin="0,0,0,8"
+          Padding="14"
+          Background="#FF1C1C22"
+          BorderBrush="#668A6AB0"
+          BorderThickness="1"
+          CornerRadius="8"
+          MinHeight="84">
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+
+      <StackPanel Grid.Column="0"
+                  VerticalAlignment="Center">
+        <TextBlock Name="deviceName"
+                   Text="The handy"
+                   FontSize="25"
+                   Foreground="White"
+                   FontFamily="Segoe UI"
+                   TextDecorations="Underline"
+                   TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal"
+                    Margin="0,4,0,0">
+          <TextBlock Text="Used as:"
+                     FontSize="18"
+                     Foreground="#FFD6D6D6"
+                     FontFamily="Segoe UI" />
+          <TextBlock Name="selectedType"
+                     Text="Not Set"
+                     FontSize="18"
+                     Foreground="White"
+                     FontFamily="Segoe UI"
+                     Margin="8,0,0,0" />
+        </StackPanel>
+      </StackPanel>
+
+      <StackPanel Grid.Column="1"
+                  Orientation="Horizontal"
+                  VerticalAlignment="Center"
+                  Margin="18,0">
+        <Image Name="plugImage"
+               Source="/plug.png"
+               Width="44"
+               Height="44"
+               Stretch="Uniform"
+               Margin="4"
+               PreviewMouseLeftButtonUp="plugImage_PreviewMouseLeftButtonUp" />
+        <Image Name="wandImage"
+               Source="/wand.png"
+               Width="44"
+               Height="44"
+               Stretch="Uniform"
+               Margin="4"
+               PreviewMouseLeftButtonUp="wandImage_PreviewMouseLeftButtonUp" />
+        <Image Name="onaImage"
+               Source="/ona.png"
+               Width="44"
+               Height="44"
+               Stretch="Uniform"
+               Margin="4"
+               PreviewMouseLeftButtonUp="onaImage_PreviewMouseLeftButtonUp" />
+      </StackPanel>
+
+      <Button Grid.Column="2"
+              Content="Test"
+              Width="96"
+              MinHeight="38"
+              FontSize="20"
+              FontFamily="Segoe UI"
+              VerticalAlignment="Center"
+              Click="Button_Click" />
+    </Grid>
+  </Border>
 </UserControl>
