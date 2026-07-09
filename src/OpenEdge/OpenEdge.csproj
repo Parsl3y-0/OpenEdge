@@ -123,6 +123,9 @@
     <Reference Include="Buttplug">
       <HintPath>..\..\vendor\dotnet\Buttplug.dll</HintPath>
     </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\..\vendor\dotnet\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="NAudio.WinMM">
       <HintPath>..\..\vendor\dotnet\NAudio.WinMM.dll</HintPath>
     </Reference>
