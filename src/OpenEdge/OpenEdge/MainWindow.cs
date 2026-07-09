@@ -1018,15 +1018,16 @@ public partial class MainWindow : Page, IComponentConnector
 		SessionTraceLogger.Info("mod-hooks", "complete hook=" + context.HookName + " mod=" + context.SourceModId + " script=" + context.Script + " handled=" + context.Handled);
 	}
 
-	private void MarkCurrentModHookHandled(string kind, string key)
+	public void MarkCurrentModHookHandled(string reason = "explicit")
 	{
 		if (activeModHooks.Count == 0)
 		{
+			SessionTraceLogger.Info("mod-hooks", "handled requested with no active context reason=" + reason);
 			return;
 		}
 		ModHookRuntimeContext context = activeModHooks.Peek();
 		context.Handled = true;
-		SessionTraceLogger.Info("mod-hooks", "handled hook=" + context.HookName + " mod=" + context.SourceModId + " outcome=" + kind + ":" + key);
+		SessionTraceLogger.Info("mod-hooks", "handled hook=" + context.HookName + " mod=" + context.SourceModId + " reason=" + reason);
 	}
 
 	private bool IsModHookEligible(ModHookDefinition hook)
@@ -3429,7 +3430,7 @@ public partial class MainWindow : Page, IComponentConnector
 		{
 			currentState = outcome.State.Trim();
 		}
-		MarkCurrentModHookHandled(kind, key);
+		MarkCurrentModHookHandled("outcome=" + kind + ":" + key);
 		return true;
 	}
 

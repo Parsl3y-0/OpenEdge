@@ -934,6 +934,7 @@ Advanced script commands:
 ```txt
 RUNSCRIPT:scriptName
 RUNHOOK:hookName[,fallbackScript]
+HOOKHANDLED[:reason]
 OUTCOME:kind,key
 ```
 
@@ -947,7 +948,9 @@ RUNHOOK:myMod.customFlowBody,defaultCustomFlowBody
 RUNHOOK:myMod.afterCustomFlow
 ```
 
-`OUTCOME:` applies a declared outcome and marks the active hook as handled.
+`HOOKHANDLED:` marks the active hook as handled without applying an outcome. Use it when a hook script successfully handled control flow or flavor text.
+
+`OUTCOME:` applies a declared outcome and also marks the active hook as handled.
 
 Example outcome file:
 

@@ -1,1 +1,2 @@
 This is conflict fixture B. Replace/exclusive conflicts are allowed, but the Mods manager warns and priority decides.
+HOOKHANDLED:

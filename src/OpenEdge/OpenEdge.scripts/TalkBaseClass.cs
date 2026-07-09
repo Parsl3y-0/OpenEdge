@@ -620,6 +620,12 @@ public class TalkBaseClass
 		string text;
 		string text2;
 		string text3;
+		if (methodName != null && methodName.StartsWith("HOOKHANDLED:", StringComparison.OrdinalIgnoreCase))
+		{
+			string reason = methodName.Replace("HOOKHANDLED:", "").Trim();
+			mw.MarkCurrentModHookHandled(string.IsNullOrWhiteSpace(reason) ? "explicit" : reason);
+			return "";
+		}
 		if (methodName != null && methodName.StartsWith("OUTCOME:", StringComparison.OrdinalIgnoreCase))
 		{
 			string outcomeText = methodName.Replace("OUTCOME:", "").Trim();

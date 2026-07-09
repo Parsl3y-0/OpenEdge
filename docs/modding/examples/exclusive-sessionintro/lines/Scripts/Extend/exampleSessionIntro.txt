@@ -1,1 +1,2 @@
 This is a replacement session intro from a mod fixture.
+HOOKHANDLED:

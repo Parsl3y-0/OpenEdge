@@ -1,1 +1,2 @@
 This is an additive method-picker example. Base modules can still happen; this one only joins the pool.
+HOOKHANDLED:

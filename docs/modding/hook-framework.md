@@ -2,7 +2,7 @@
 
 This document describes a genre-neutral revamp of the OpenEdge modding system. The goal is to let mods participate in session flow without requiring app-code changes for every new content type.
 
-Current implementation status: mod priority config and Mods manager up/down priority controls, hook/outcome JSON metadata loading, `RUNSCRIPT:`, dynamic `RUNHOOK:`, conservative `OUTCOME:` commands, hook handled/unhandled tracing, base hook entrypoints for `sessionIntro`, `methodPicker`, `changeState`, `sessionEnd`, `edgeOpportunity`, and `orgasmDecision`, and additive/base pooling for `methodPicker` are implemented. More sophisticated additive/base pooling for other hooks and fallback-after-unhandled behavior are still planned.
+Current implementation status: mod priority config and Mods manager up/down priority controls, hook/outcome JSON metadata loading, `RUNSCRIPT:`, dynamic `RUNHOOK:`, explicit `HOOKHANDLED:`, conservative `OUTCOME:` commands, hook handled/unhandled tracing, base hook entrypoints for `sessionIntro`, `methodPicker`, `changeState`, `sessionEnd`, `edgeOpportunity`, and `orgasmDecision`, and additive/base pooling for `methodPicker` are implemented. More sophisticated additive/base pooling for other hooks and fallback-after-unhandled behavior are still planned.
 
 ## Goals
 
@@ -293,6 +293,23 @@ RUNHOOK:myMod.afterCustomEdge
 ```
 
 A higher-priority mod can hook into `myMod.customEdgeBody` with `exclusive` or `replace` mode to override that part of the flow.
+
+### `HOOKHANDLED[:reason]`
+
+Implemented. Marks the active hook context as handled without applying an outcome. This is useful for hooks that replace flow or provide flavor text but do not represent an edge/orgasm/denial/state outcome.
+
+Example:
+
+```txt
+This custom intro handled the sessionIntro hook.
+HOOKHANDLED:
+```
+
+An optional reason is logged:
+
+```txt
+HOOKHANDLED:fallback
+```
 
 ### `OUTCOME:<kind>,<key>`
 
